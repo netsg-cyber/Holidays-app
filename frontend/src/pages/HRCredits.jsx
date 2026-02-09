@@ -15,7 +15,9 @@ import {
   MinusCircle,
   PlusCircle,
   Minus,
-  Clock
+  Clock,
+  CalendarDays,
+  AlertTriangle
 } from "lucide-react";
 import { Card, CardContent, CardHeader, CardTitle } from "../components/ui/card";
 import { Button } from "../components/ui/button";
@@ -36,6 +38,9 @@ import {
   SelectValue,
 } from "../components/ui/select";
 import { Label } from "../components/ui/label";
+import { Calendar } from "../components/ui/calendar";
+import { Popover, PopoverContent, PopoverTrigger } from "../components/ui/popover";
+import { format, parseISO, isAfter, isBefore, addDays } from "date-fns";
 
 // Category icons mapping
 const categoryIcons = {
@@ -74,15 +79,22 @@ const HRCredits = () => {
   const [formCategory, setFormCategory] = useState("paid_holiday");
   const [formYear, setFormYear] = useState(new Date().getFullYear().toString());
   const [totalDays, setTotalDays] = useState("35");
+  const [expiresAt, setExpiresAt] = useState(null);
   const [saving, setSaving] = useState(false);
   
   // Adjust credits dialog
   const [isAdjustDialogOpen, setIsAdjustDialogOpen] = useState(false);
   const [adjustingCredit, setAdjustingCredit] = useState(null);
   const [adjustmentAmount, setAdjustmentAmount] = useState("");
-  const [adjustmentType, setAdjustmentType] = useState("reduce"); // "add" or "reduce"
+  const [adjustmentType, setAdjustmentType] = useState("reduce");
   const [adjustmentReason, setAdjustmentReason] = useState("");
   const [adjusting, setAdjusting] = useState(false);
+  
+  // Expiration dialog
+  const [isExpirationDialogOpen, setIsExpirationDialogOpen] = useState(false);
+  const [expirationCredit, setExpirationCredit] = useState(null);
+  const [newExpirationDate, setNewExpirationDate] = useState(null);
+  const [savingExpiration, setSavingExpiration] = useState(false);
 
   useEffect(() => {
     if (user?.role !== "hr") return;
@@ -119,7 +131,8 @@ const HRCredits = () => {
         user_id: formUser,
         year: parseInt(formYear),
         category: formCategory,
-        total_days: parseFloat(totalDays)
+        total_days: parseFloat(totalDays),
+        expires_at: expiresAt ? format(expiresAt, "yyyy-MM-dd") : null
       });
       toast.success("Credits updated successfully");
       setIsDialogOpen(false);
@@ -162,11 +175,32 @@ const HRCredits = () => {
     }
   };
 
+  const handleUpdateExpiration = async () => {
+    setSavingExpiration(true);
+    try {
+      await axios.put(`${API}/credits/expiration`, {
+        user_id: expirationCredit.user_id,
+        year: expirationCredit.year,
+        category: expirationCredit.category,
+        expires_at: newExpirationDate ? format(newExpirationDate, "yyyy-MM-dd") : null
+      });
+      toast.success("Expiration date updated successfully");
+      closeExpirationDialog();
+      fetchData();
+    } catch (error) {
+      console.error("Error updating expiration:", error);
+      toast.error(error.response?.data?.detail || "Failed to update expiration date");
+    } finally {
+      setSavingExpiration(false);
+    }
+  };
+
   const resetForm = () => {
     setFormUser("");
     setFormCategory("paid_holiday");
     setFormYear(new Date().getFullYear().toString());
     setTotalDays("35");
+    setExpiresAt(null);
     setEditingCredit(null);
   };
 
@@ -176,6 +210,7 @@ const HRCredits = () => {
     setFormCategory(credit.category || "paid_holiday");
     setFormYear(credit.year.toString());
     setTotalDays(credit.total_days.toString());
+    setExpiresAt(credit.expires_at ? parseISO(credit.expires_at) : null);
     setIsDialogOpen(true);
   };
 
@@ -197,6 +232,30 @@ const HRCredits = () => {
     setAdjustingCredit(null);
     setAdjustmentAmount("");
     setAdjustmentReason("");
+  };
+
+  const openExpirationDialog = (credit) => {
+    setExpirationCredit(credit);
+    setNewExpirationDate(credit.expires_at ? parseISO(credit.expires_at) : null);
+    setIsExpirationDialogOpen(true);
+  };
+
+  const closeExpirationDialog = () => {
+    setIsExpirationDialogOpen(false);
+    setExpirationCredit(null);
+    setNewExpirationDate(null);
+  };
+
+  const isExpiringSoon = (expiresAt) => {
+    if (!expiresAt) return false;
+    const expDate = parseISO(expiresAt);
+    const warningDate = addDays(new Date(), 30);
+    return isBefore(expDate, warningDate) && isAfter(expDate, new Date());
+  };
+
+  const isExpired = (expiresAt) => {
+    if (!expiresAt) return false;
+    return isBefore(parseISO(expiresAt), new Date());
   };
 
   // Group credits by user for the selected year
@@ -356,7 +415,7 @@ const HRCredits = () => {
                 </div>
               </CardHeader>
               <CardContent>
-                <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-5 gap-3">
+                <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4 gap-3">
                   {categories.map(cat => {
                     const credit = userData.credits.find(c => c.category === cat.id);
                     const Icon = categoryIcons[cat.id] || Briefcase;
@@ -364,11 +423,13 @@ const HRCredits = () => {
                     const percentage = credit && credit.total_days > 0 
                       ? (credit.remaining_days / credit.total_days) * 100 
                       : 0;
+                    const expiringSoon = credit?.expires_at && isExpiringSoon(credit.expires_at);
+                    const expired = credit?.expires_at && isExpired(credit.expires_at);
                     
                     return (
                       <div 
                         key={cat.id} 
-                        className={`p-3 rounded-lg border ${credit ? '' : 'border-dashed opacity-60'} hover:shadow-sm transition-shadow`}
+                        className={`p-3 rounded-lg border ${credit ? '' : 'border-dashed opacity-60'} ${expired ? 'border-red-300 bg-red-50' : expiringSoon ? 'border-amber-300 bg-amber-50' : ''} hover:shadow-sm transition-shadow`}
                         data-testid={`credit-card-${userData.user_id}-${cat.id}`}
                       >
                         <div className="flex items-center justify-between mb-2">
@@ -378,11 +439,14 @@ const HRCredits = () => {
                             </div>
                             <span className="text-xs font-medium text-slate-600 truncate">{cat.name}</span>
                           </div>
+                          {(expiringSoon || expired) && (
+                            <AlertTriangle size={14} className={expired ? "text-red-500" : "text-amber-500"} />
+                          )}
                         </div>
                         {credit ? (
                           <>
                             <div className="flex items-baseline gap-1">
-                              <span className="text-lg font-bold text-slate-900">{credit.remaining_days}</span>
+                              <span className={`text-lg font-bold ${expired ? 'text-red-600' : 'text-slate-900'}`}>{credit.remaining_days}</span>
                               <span className="text-xs text-slate-500">/ {credit.total_days}</span>
                             </div>
                             <div className="mt-1.5 h-1 bg-slate-200 rounded-full overflow-hidden">
@@ -395,6 +459,17 @@ const HRCredits = () => {
                               />
                             </div>
                             <p className="text-xs text-slate-500 mt-1">Used: {credit.used_days}</p>
+                            
+                            {/* Expiration date display */}
+                            {credit.expires_at && (
+                              <div className={`text-xs mt-1 flex items-center gap-1 ${expired ? 'text-red-600' : expiringSoon ? 'text-amber-600' : 'text-slate-500'}`}>
+                                <CalendarDays size={10} />
+                                <span>
+                                  {expired ? 'Expired: ' : 'Expires: '}
+                                  {credit.expires_at}
+                                </span>
+                              </div>
+                            )}
                             
                             {/* Action buttons */}
                             <div className="flex gap-1 mt-2">
@@ -419,6 +494,19 @@ const HRCredits = () => {
                                 Adjust
                               </Button>
                             </div>
+                            {/* Expiration button - not for paid_holiday */}
+                            {cat.id !== "paid_holiday" && (
+                              <Button
+                                size="sm"
+                                variant="outline"
+                                className="w-full h-7 text-xs mt-1 text-blue-600 border-blue-200 hover:bg-blue-50"
+                                onClick={() => openExpirationDialog(credit)}
+                                data-testid={`expiration-credit-${credit.credit_id}`}
+                              >
+                                <CalendarDays size={12} className="mr-1" />
+                                Set Expiration
+                              </Button>
+                            )}
                           </>
                         ) : (
                           <Button
@@ -430,6 +518,7 @@ const HRCredits = () => {
                               setFormCategory(cat.id);
                               setTotalDays(cat.id === "paid_holiday" ? "35" : "10");
                               setFormYear(selectedYear);
+                              setExpiresAt(null);
                               setIsDialogOpen(true);
                             }}
                           >
@@ -450,7 +539,8 @@ const HRCredits = () => {
       {/* Summary */}
       <div className="mt-6 p-4 bg-blue-50 rounded-xl">
         <p className="text-sm text-blue-800">
-          <strong>Note:</strong> Credits from year N-1 will be automatically deleted on July 31st of year N.
+          <strong>Note:</strong> Paid Holidays credits expire on July 31st of the following year (fixed). 
+          For other categories, HR can set custom expiration dates.
         </p>
       </div>
 
@@ -535,6 +625,50 @@ const HRCredits = () => {
                 data-testid="total-days-input"
               />
             </div>
+
+            {/* Expiration date - not for paid_holiday */}
+            {formCategory !== "paid_holiday" && (
+              <div>
+                <Label className="form-label">Expiration Date (optional)</Label>
+                <Popover>
+                  <PopoverTrigger asChild>
+                    <Button
+                      variant="outline"
+                      className="w-full justify-start text-left font-normal"
+                      data-testid="expires-at-btn"
+                    >
+                      <CalendarDays className="mr-2 h-4 w-4" />
+                      {expiresAt ? format(expiresAt, "PPP") : "No expiration set"}
+                    </Button>
+                  </PopoverTrigger>
+                  <PopoverContent className="w-auto p-0">
+                    <Calendar
+                      mode="single"
+                      selected={expiresAt}
+                      onSelect={setExpiresAt}
+                      disabled={(date) => date < new Date()}
+                      initialFocus
+                    />
+                  </PopoverContent>
+                </Popover>
+                {expiresAt && (
+                  <Button
+                    variant="ghost"
+                    size="sm"
+                    className="mt-1 text-xs text-slate-500"
+                    onClick={() => setExpiresAt(null)}
+                  >
+                    Clear expiration
+                  </Button>
+                )}
+              </div>
+            )}
+
+            {formCategory === "paid_holiday" && (
+              <p className="text-xs text-slate-500 bg-slate-50 p-2 rounded">
+                Paid Holidays automatically expire on July 31, {parseInt(formYear) + 1}
+              </p>
+            )}
 
             <DialogFooter className="pt-4">
               <Button
@@ -684,6 +818,104 @@ const HRCredits = () => {
                   data-testid="confirm-adjust-btn"
                 >
                   {adjusting ? "Adjusting..." : `${adjustmentType === "reduce" ? "Reduce" : "Add"} Credits`}
+                </Button>
+              </DialogFooter>
+            </div>
+          )}
+        </DialogContent>
+      </Dialog>
+
+      {/* Set Expiration Dialog */}
+      <Dialog open={isExpirationDialogOpen} onOpenChange={closeExpirationDialog}>
+        <DialogContent className="sm:max-w-md">
+          <DialogHeader>
+            <DialogTitle>Set Expiration Date</DialogTitle>
+          </DialogHeader>
+          {expirationCredit && (
+            <div className="space-y-4 mt-4">
+              {/* Credit Info */}
+              <div className="p-4 bg-slate-50 rounded-lg">
+                <div className="flex items-center gap-3">
+                  {(() => {
+                    const Icon = categoryIcons[expirationCredit.category] || Briefcase;
+                    const colorClass = categoryColors[expirationCredit.category] || "bg-slate-100 text-slate-700";
+                    return (
+                      <div className={`p-2 rounded ${colorClass}`}>
+                        <Icon size={18} />
+                      </div>
+                    );
+                  })()}
+                  <div>
+                    <p className="font-medium text-slate-900">{expirationCredit.user_name}</p>
+                    <p className="text-sm text-slate-600">{expirationCredit.category_name} - {expirationCredit.year}</p>
+                  </div>
+                </div>
+                <div className="mt-3 text-sm">
+                  <span className="text-slate-500">Current balance: </span>
+                  <span className="font-medium">{expirationCredit.remaining_days} / {expirationCredit.total_days} days</span>
+                </div>
+                {expirationCredit.expires_at && (
+                  <div className="mt-1 text-sm">
+                    <span className="text-slate-500">Current expiration: </span>
+                    <span className="font-medium">{expirationCredit.expires_at}</span>
+                  </div>
+                )}
+              </div>
+
+              {/* Date picker */}
+              <div>
+                <Label className="form-label">New Expiration Date</Label>
+                <Popover>
+                  <PopoverTrigger asChild>
+                    <Button
+                      variant="outline"
+                      className="w-full justify-start text-left font-normal"
+                      data-testid="new-expiration-date-btn"
+                    >
+                      <CalendarDays className="mr-2 h-4 w-4" />
+                      {newExpirationDate ? format(newExpirationDate, "PPP") : "Select expiration date"}
+                    </Button>
+                  </PopoverTrigger>
+                  <PopoverContent className="w-auto p-0">
+                    <Calendar
+                      mode="single"
+                      selected={newExpirationDate}
+                      onSelect={setNewExpirationDate}
+                      disabled={(date) => date < new Date()}
+                      initialFocus
+                    />
+                  </PopoverContent>
+                </Popover>
+                {newExpirationDate && (
+                  <Button
+                    variant="ghost"
+                    size="sm"
+                    className="mt-1 text-xs text-slate-500"
+                    onClick={() => setNewExpirationDate(null)}
+                  >
+                    Clear expiration (no limit)
+                  </Button>
+                )}
+              </div>
+
+              <p className="text-xs text-slate-500">
+                Setting an expiration date will notify the employee. Credits should be used before this date.
+              </p>
+
+              <DialogFooter className="pt-4">
+                <Button
+                  variant="outline"
+                  onClick={closeExpirationDialog}
+                >
+                  Cancel
+                </Button>
+                <Button
+                  className="btn-primary"
+                  onClick={handleUpdateExpiration}
+                  disabled={savingExpiration}
+                  data-testid="save-expiration-btn"
+                >
+                  {savingExpiration ? "Saving..." : "Update Expiration"}
                 </Button>
               </DialogFooter>
             </div>
