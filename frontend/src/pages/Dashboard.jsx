@@ -330,6 +330,7 @@ const Dashboard = () => {
             </form>
           </DialogContent>
         </Dialog>
+        </div>
       </div>
 
       {/* Credits by Category */}
