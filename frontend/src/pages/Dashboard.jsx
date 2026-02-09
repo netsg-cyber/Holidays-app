@@ -50,7 +50,8 @@ const categoryIcons = {
   unpaid_leave: MinusCircle,
   sick_leave: Thermometer,
   parental_leave: Heart,
-  maternity_leave: Baby
+  maternity_leave: Baby,
+  compensatory_rest: Clock
 };
 
 // Category colors mapping
