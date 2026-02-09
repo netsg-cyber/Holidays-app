@@ -697,6 +697,78 @@ async def create_or_update_credit(credit: HolidayCreditCreate, user: User = Depe
     
     return {"message": "Credit updated successfully"}
 
+class CreditAdjustment(BaseModel):
+    user_id: str
+    year: int
+    category: str
+    adjustment: float  # Positive to add days, negative to reduce days
+    reason: str = ""
+
+@api_router.put("/credits/adjust")
+async def adjust_credit(adjustment: CreditAdjustment, current_user: User = Depends(get_hr_user)):
+    """Adjust (add or reduce) holiday credits for a user (HR only)"""
+    # Find the credit
+    credit = await db.holiday_credits.find_one(
+        {"user_id": adjustment.user_id, "year": adjustment.year, "category": adjustment.category},
+        {"_id": 0}
+    )
+    
+    if not credit:
+        raise HTTPException(status_code=404, detail="Credit not found for this user/year/category")
+    
+    # Calculate new values
+    new_remaining = credit["remaining_days"] + adjustment.adjustment
+    new_used = credit["used_days"] - adjustment.adjustment  # If reducing remaining, increase used
+    
+    # Validate
+    if new_remaining < 0:
+        raise HTTPException(status_code=400, detail=f"Cannot reduce more than available. Current remaining: {credit['remaining_days']} days")
+    
+    if new_used < 0:
+        new_used = 0  # Don't allow negative used days
+    
+    if new_remaining > credit["total_days"]:
+        # If adding more than total, also increase total
+        new_total = new_remaining
+    else:
+        new_total = credit["total_days"]
+    
+    # Update credit
+    await db.holiday_credits.update_one(
+        {"user_id": adjustment.user_id, "year": adjustment.year, "category": adjustment.category},
+        {"$set": {
+            "total_days": new_total,
+            "used_days": new_used,
+            "remaining_days": new_remaining,
+            "updated_at": datetime.now(timezone.utc).isoformat()
+        }}
+    )
+    
+    # Get category name and user info for notification
+    category_name = next((c["name"] for c in HOLIDAY_CATEGORIES if c["id"] == adjustment.category), adjustment.category)
+    target_user = await db.users.find_one({"user_id": adjustment.user_id}, {"_id": 0})
+    
+    # Notify employee
+    if target_user:
+        action = "increased" if adjustment.adjustment > 0 else "reduced"
+        await send_email_notification(
+            target_user["email"],
+            f"{category_name} Credits Adjusted for {adjustment.year}",
+            f"""
+            <h2>{category_name} Credits Adjusted</h2>
+            <p>Your {category_name} credits for {adjustment.year} have been {action} by {abs(adjustment.adjustment)} day(s).</p>
+            <p><strong>New Balance:</strong> {new_remaining} days remaining</p>
+            {f'<p><strong>Reason:</strong> {adjustment.reason}</p>' if adjustment.reason else ''}
+            """
+        )
+    
+    return {
+        "message": "Credit adjusted successfully",
+        "new_remaining": new_remaining,
+        "new_used": new_used,
+        "new_total": new_total
+    }
+
 # ==================== PUBLIC HOLIDAYS ROUTES ====================
 
 @api_router.get("/public-holidays")
