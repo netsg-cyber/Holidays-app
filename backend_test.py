@@ -472,7 +472,7 @@ print('Deleted holidays: ' + result5.deletedCount);
         return self.tests_passed == self.tests_run
 
 def main():
-    tester = HolidayAPITester()
+    tester = HolidayCategoryTester()
     success = tester.run_all_tests()
     return 0 if success else 1
 
