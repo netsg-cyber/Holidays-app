@@ -1,34 +1,212 @@
-.App-logo {
-    height: 40vmin;
-    pointer-events: none;
+/* Additional app-specific styles */
+
+.App {
+  min-height: 100vh;
 }
 
-@media (prefers-reduced-motion: no-preference) {
-    .App-logo {
-        animation: App-logo-spin infinite 20s linear;
-    }
+/* Login page background */
+.login-bg {
+  background-image: linear-gradient(135deg, rgba(15, 23, 42, 0.85) 0%, rgba(15, 23, 42, 0.7) 100%),
+    url('https://images.unsplash.com/photo-1588084580191-db8604397b3d?crop=entropy&cs=srgb&fm=jpg&ixid=M3w3NTY2Nzd8MHwxfHNlYXJjaHwyfHxtb2Rlcm4lMjBtaW5pbWFsJTIwb2ZmaWNlJTIwaW50ZXJpb3IlMjBicmlnaHR8ZW58MHx8fHwxNzcwNjM0OTA4fDA&ixlib=rb-4.1.0&q=85');
+  background-size: cover;
+  background-position: center;
 }
 
-.App-header {
-    background-color: #0f0f10;
-    min-height: 100vh;
-    display: flex;
-    flex-direction: column;
-    align-items: center;
-    justify-content: center;
-    font-size: calc(10px + 2vmin);
-    color: white;
+/* Bento grid for dashboard */
+.bento-grid {
+  display: grid;
+  gap: 1.5rem;
+  grid-template-columns: repeat(1, 1fr);
 }
 
-.App-link {
-    color: #61dafb;
+@media (min-width: 768px) {
+  .bento-grid {
+    grid-template-columns: repeat(3, 1fr);
+  }
 }
 
-@keyframes App-logo-spin {
-    from {
-        transform: rotate(0deg);
-    }
-    to {
-        transform: rotate(360deg);
-    }
+@media (min-width: 1024px) {
+  .bento-grid {
+    grid-template-columns: repeat(4, 1fr);
+  }
+}
+
+.bento-card {
+  background: white;
+  border-radius: 0.75rem;
+  border: 1px solid #e2e8f0;
+  padding: 1.5rem;
+  transition: all 0.2s ease;
+}
+
+.bento-card:hover {
+  box-shadow: 0 12px 24px -8px rgba(15, 23, 42, 0.08), 0 4px 8px -4px rgba(15, 23, 42, 0.04);
+}
+
+.bento-card-large {
+  grid-column: span 2;
+}
+
+.bento-card-tall {
+  grid-row: span 2;
+}
+
+/* Calendar grid */
+.calendar-grid {
+  display: grid;
+  grid-template-columns: repeat(7, 1fr);
+  gap: 1px;
+  background: #e2e8f0;
+  border-radius: 0.75rem;
+  overflow: hidden;
+}
+
+.calendar-header {
+  background: #f8fafc;
+  padding: 0.75rem;
+  text-align: center;
+  font-weight: 600;
+  font-size: 0.75rem;
+  text-transform: uppercase;
+  color: #64748b;
+}
+
+.calendar-cell {
+  background: white;
+  min-height: 80px;
+  padding: 0.5rem;
+  position: relative;
+}
+
+.calendar-cell:hover {
+  background: #f8fafc;
+}
+
+.calendar-cell-today {
+  background: #eff6ff;
+}
+
+.calendar-cell-other-month {
+  background: #f8fafc;
+  color: #94a3b8;
+}
+
+.calendar-event {
+  font-size: 0.7rem;
+  padding: 0.25rem 0.5rem;
+  border-radius: 0.25rem;
+  margin-top: 0.25rem;
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+
+.calendar-event-holiday {
+  background: #dbeafe;
+  color: #1e40af;
+}
+
+.calendar-event-public {
+  background: #d1fae5;
+  color: #065f46;
+}
+
+/* Stats card */
+.stat-card {
+  background: linear-gradient(135deg, rgba(59, 130, 246, 0.1) 0%, rgba(255, 255, 255, 0) 100%);
+}
+
+/* Request card */
+.request-card {
+  border-left: 4px solid transparent;
+}
+
+.request-card-pending {
+  border-left-color: #f59e0b;
+}
+
+.request-card-approved {
+  border-left-color: #10b981;
+}
+
+.request-card-rejected {
+  border-left-color: #ef4444;
+}
+
+/* Navigation active state */
+.nav-active {
+  background: rgba(255, 255, 255, 0.1);
+  color: white;
+}
+
+/* Table improvements */
+.data-table {
+  width: 100%;
+  border-collapse: separate;
+  border-spacing: 0;
+}
+
+.data-table th {
+  background: #f8fafc;
+  padding: 0.75rem 1rem;
+  text-align: left;
+  font-weight: 600;
+  font-size: 0.75rem;
+  text-transform: uppercase;
+  color: #64748b;
+  border-bottom: 1px solid #e2e8f0;
+}
+
+.data-table td {
+  padding: 1rem;
+  border-bottom: 1px solid #f1f5f9;
+}
+
+.data-table tbody tr:hover {
+  background: #f8fafc;
+}
+
+/* Modal overlay */
+.modal-overlay {
+  background: rgba(15, 23, 42, 0.5);
+  backdrop-filter: blur(4px);
+}
+
+/* Badge */
+.badge {
+  display: inline-flex;
+  align-items: center;
+  padding: 0.25rem 0.75rem;
+  border-radius: 9999px;
+  font-size: 0.75rem;
+  font-weight: 500;
+}
+
+.badge-approved {
+  background: #d1fae5;
+  color: #065f46;
+}
+
+.badge-pending {
+  background: #fef3c7;
+  color: #92400e;
+}
+
+.badge-rejected {
+  background: #fee2e2;
+  color: #991b1b;
+}
+
+/* Empty state */
+.empty-state {
+  text-align: center;
+  padding: 3rem 1.5rem;
+  color: #64748b;
+}
+
+.empty-state-icon {
+  width: 4rem;
+  height: 4rem;
+  margin: 0 auto 1rem;
+  color: #cbd5e1;
 }
