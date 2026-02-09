@@ -750,12 +750,15 @@ async def get_calendar_events(year: int, month: int, user: User = Depends(get_cu
     
     events = []
     for h in holidays:
+        category = h.get("category", "paid_holiday")
+        category_name = next((c["name"] for c in HOLIDAY_CATEGORIES if c["id"] == category), category)
         events.append({
             "id": h["request_id"],
-            "title": f"{h['user_name']} - Holiday",
+            "title": f"{h['user_name']} - {category_name}",
             "start": h["start_date"],
             "end": h["end_date"],
             "type": "holiday",
+            "category": category,
             "user_name": h["user_name"]
         })
     
