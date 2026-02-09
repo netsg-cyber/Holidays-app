@@ -14,7 +14,8 @@ import {
   Heart,
   Baby,
   Thermometer,
-  MinusCircle
+  MinusCircle,
+  CreditCard
 } from "lucide-react";
 import { Card, CardContent, CardHeader, CardTitle } from "../components/ui/card";
 import { Button } from "../components/ui/button";
@@ -63,6 +64,8 @@ const HRDashboard = () => {
   const [categoryFilter, setCategoryFilter] = useState("all");
   const [search, setSearch] = useState("");
   const [selectedRequest, setSelectedRequest] = useState(null);
+  const [selectedUserCredits, setSelectedUserCredits] = useState([]);
+  const [loadingCredits, setLoadingCredits] = useState(false);
   const [hrComment, setHrComment] = useState("");
   const [processing, setProcessing] = useState(false);
 
@@ -87,6 +90,32 @@ const HRDashboard = () => {
     }
   };
 
+  const fetchUserCredits = async (userId) => {
+    setLoadingCredits(true);
+    try {
+      const currentYear = new Date().getFullYear();
+      const response = await axios.get(`${API}/credits/user/${userId}?year=${currentYear}`);
+      setSelectedUserCredits(response.data);
+    } catch (error) {
+      console.error("Error fetching user credits:", error);
+      setSelectedUserCredits([]);
+    } finally {
+      setLoadingCredits(false);
+    }
+  };
+
+  const openReviewDialog = (request) => {
+    setSelectedRequest(request);
+    setHrComment("");
+    fetchUserCredits(request.user_id);
+  };
+
+  const closeReviewDialog = () => {
+    setSelectedRequest(null);
+    setSelectedUserCredits([]);
+    setHrComment("");
+  };
+
   const handleApprove = async () => {
     if (!selectedRequest) return;
     setProcessing(true);
@@ -95,8 +124,7 @@ const HRDashboard = () => {
         `${API}/requests/${selectedRequest.request_id}/approve?hr_comment=${encodeURIComponent(hrComment)}`
       );
       toast.success("Request approved successfully");
-      setSelectedRequest(null);
-      setHrComment("");
+      closeReviewDialog();
       fetchData();
     } catch (error) {
       console.error("Error approving request:", error);
@@ -114,8 +142,7 @@ const HRDashboard = () => {
         `${API}/requests/${selectedRequest.request_id}/reject?hr_comment=${encodeURIComponent(hrComment)}`
       );
       toast.success("Request rejected");
-      setSelectedRequest(null);
-      setHrComment("");
+      closeReviewDialog();
       fetchData();
     } catch (error) {
       console.error("Error rejecting request:", error);
@@ -127,6 +154,11 @@ const HRDashboard = () => {
 
   const getCategoryName = (categoryId) => {
     return categories.find(c => c.id === categoryId)?.name || categoryId;
+  };
+
+  const getRequestedCategoryCredit = () => {
+    if (!selectedRequest || !selectedUserCredits.length) return null;
+    return selectedUserCredits.find(c => c.category === selectedRequest.category);
   };
 
   const filteredRequests = requests.filter(req => {
@@ -302,10 +334,7 @@ const HRDashboard = () => {
                             <Button
                               size="sm"
                               variant="outline"
-                              onClick={() => {
-                                setSelectedRequest(req);
-                                setHrComment("");
-                              }}
+                              onClick={() => openReviewDialog(req)}
                               data-testid={`review-btn-${req.request_id}`}
                             >
                               Review
@@ -327,18 +356,20 @@ const HRDashboard = () => {
       </Card>
 
       {/* Review Dialog */}
-      <Dialog open={!!selectedRequest} onOpenChange={() => setSelectedRequest(null)}>
-        <DialogContent className="sm:max-w-md">
+      <Dialog open={!!selectedRequest} onOpenChange={closeReviewDialog}>
+        <DialogContent className="sm:max-w-lg">
           <DialogHeader>
             <DialogTitle>Review Request</DialogTitle>
           </DialogHeader>
           {selectedRequest && (
             <div className="space-y-4 mt-4">
+              {/* User Info */}
               <div className="p-4 bg-slate-50 rounded-lg">
                 <p className="font-medium text-slate-900">{selectedRequest.user_name}</p>
                 <p className="text-sm text-slate-600">{selectedRequest.user_email}</p>
               </div>
               
+              {/* Request Category */}
               <div className="flex items-center gap-3 p-3 bg-slate-50 rounded-lg">
                 {(() => {
                   const Icon = categoryIcons[selectedRequest.category] || Briefcase;
@@ -354,6 +385,7 @@ const HRDashboard = () => {
                 })()}
               </div>
               
+              {/* Request Details */}
               <div className="grid grid-cols-2 gap-4 text-sm">
                 <div>
                   <p className="text-slate-500">Dates</p>
@@ -372,6 +404,87 @@ const HRDashboard = () => {
                 <p className="text-slate-900">{selectedRequest.reason}</p>
               </div>
 
+              {/* User Credits Section */}
+              <div className="border-t pt-4">
+                <div className="flex items-center gap-2 mb-3">
+                  <CreditCard size={18} className="text-blue-500" />
+                  <p className="font-medium text-slate-900">Employee's Leave Balance ({new Date().getFullYear()})</p>
+                </div>
+                
+                {loadingCredits ? (
+                  <div className="flex items-center justify-center py-4">
+                    <div className="w-5 h-5 spinner" />
+                  </div>
+                ) : selectedUserCredits.length === 0 ? (
+                  <p className="text-sm text-slate-500">No credits assigned</p>
+                ) : (
+                  <div className="grid grid-cols-2 sm:grid-cols-3 gap-2">
+                    {selectedUserCredits.map(credit => {
+                      const Icon = categoryIcons[credit.category] || Briefcase;
+                      const colorClass = categoryColors[credit.category] || "bg-slate-100 text-slate-700";
+                      const isRequestedCategory = credit.category === selectedRequest.category;
+                      const percentage = credit.total_days > 0 
+                        ? (credit.remaining_days / credit.total_days) * 100 
+                        : 0;
+                      
+                      return (
+                        <div 
+                          key={credit.credit_id} 
+                          className={`p-2 rounded-lg border ${isRequestedCategory ? 'border-blue-300 bg-blue-50' : 'border-slate-200'}`}
+                        >
+                          <div className="flex items-center gap-1.5 mb-1">
+                            <div className={`p-1 rounded ${colorClass}`}>
+                              <Icon size={12} />
+                            </div>
+                            <span className="text-xs font-medium text-slate-600 truncate">
+                              {credit.category_name}
+                            </span>
+                          </div>
+                          <div className="flex items-baseline gap-1">
+                            <span className={`text-lg font-bold ${
+                              isRequestedCategory ? 'text-blue-700' : 'text-slate-900'
+                            }`}>
+                              {credit.remaining_days}
+                            </span>
+                            <span className="text-xs text-slate-500">/ {credit.total_days}</span>
+                          </div>
+                          <div className="mt-1 h-1 bg-slate-200 rounded-full overflow-hidden">
+                            <div
+                              className={`h-full rounded-full ${
+                                percentage > 50 ? "bg-emerald-500" :
+                                percentage > 20 ? "bg-amber-500" : "bg-red-500"
+                              }`}
+                              style={{ width: `${percentage}%` }}
+                            />
+                          </div>
+                          {isRequestedCategory && (
+                            <p className="text-xs text-blue-600 mt-1">
+                              After approval: {credit.remaining_days - selectedRequest.days_count} days
+                            </p>
+                          )}
+                        </div>
+                      );
+                    })}
+                  </div>
+                )}
+                
+                {/* Warning if insufficient credits */}
+                {(() => {
+                  const requestedCredit = getRequestedCategoryCredit();
+                  if (requestedCredit && requestedCredit.remaining_days < selectedRequest.days_count) {
+                    return (
+                      <div className="mt-3 p-2 bg-red-50 border border-red-200 rounded-lg">
+                        <p className="text-sm text-red-700 font-medium">
+                          ⚠️ Insufficient credits! Employee only has {requestedCredit.remaining_days} days remaining.
+                        </p>
+                      </div>
+                    );
+                  }
+                  return null;
+                })()}
+              </div>
+
+              {/* HR Comment */}
               <div>
                 <Label className="form-label">Comment (optional)</Label>
                 <Textarea
