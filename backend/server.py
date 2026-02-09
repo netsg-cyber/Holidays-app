@@ -610,6 +610,22 @@ async def get_my_credits(user: User = Depends(get_current_user)):
     
     return credits
 
+@api_router.get("/credits/user/{user_id}")
+async def get_user_credits(user_id: str, year: Optional[int] = None, current_user: User = Depends(get_hr_user)):
+    """Get specific user's holiday credits (HR only)"""
+    query = {"user_id": user_id}
+    if year:
+        query["year"] = year
+    
+    credits = await db.holiday_credits.find(query, {"_id": 0}).sort([("year", -1), ("category", 1)]).to_list(100)
+    
+    # Add category name to each credit
+    for credit in credits:
+        category_info = next((c for c in HOLIDAY_CATEGORIES if c["id"] == credit.get("category", "paid_holiday")), None)
+        credit["category_name"] = category_info["name"] if category_info else credit.get("category", "Paid Holidays")
+    
+    return credits
+
 @api_router.get("/credits/all")
 async def get_all_credits(user: User = Depends(get_hr_user)):
     """Get all users' holiday credits (HR only)"""
