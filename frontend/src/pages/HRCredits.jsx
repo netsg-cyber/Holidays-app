@@ -12,11 +12,14 @@ import {
   Heart,
   Baby,
   Thermometer,
-  MinusCircle
+  MinusCircle,
+  PlusCircle,
+  Minus
 } from "lucide-react";
 import { Card, CardContent, CardHeader, CardTitle } from "../components/ui/card";
 import { Button } from "../components/ui/button";
 import { Input } from "../components/ui/input";
+import { Textarea } from "../components/ui/textarea";
 import {
   Dialog,
   DialogContent,
@@ -32,7 +35,6 @@ import {
   SelectValue,
 } from "../components/ui/select";
 import { Label } from "../components/ui/label";
-import { Tabs, TabsContent, TabsList, TabsTrigger } from "../components/ui/tabs";
 
 // Category icons mapping
 const categoryIcons = {
@@ -61,15 +63,23 @@ const HRCredits = () => {
   const [search, setSearch] = useState("");
   const [selectedYear, setSelectedYear] = useState(new Date().getFullYear().toString());
   const [selectedCategory, setSelectedCategory] = useState("all");
+  
+  // Assign credits dialog
   const [isDialogOpen, setIsDialogOpen] = useState(false);
   const [editingCredit, setEditingCredit] = useState(null);
-  
-  // Form state
   const [formUser, setFormUser] = useState("");
   const [formCategory, setFormCategory] = useState("paid_holiday");
   const [formYear, setFormYear] = useState(new Date().getFullYear().toString());
   const [totalDays, setTotalDays] = useState("35");
   const [saving, setSaving] = useState(false);
+  
+  // Adjust credits dialog
+  const [isAdjustDialogOpen, setIsAdjustDialogOpen] = useState(false);
+  const [adjustingCredit, setAdjustingCredit] = useState(null);
+  const [adjustmentAmount, setAdjustmentAmount] = useState("");
+  const [adjustmentType, setAdjustmentType] = useState("reduce"); // "add" or "reduce"
+  const [adjustmentReason, setAdjustmentReason] = useState("");
+  const [adjusting, setAdjusting] = useState(false);
 
   useEffect(() => {
     if (user?.role !== "hr") return;
@@ -120,6 +130,35 @@ const HRCredits = () => {
     }
   };
 
+  const handleAdjust = async () => {
+    if (!adjustmentAmount || parseFloat(adjustmentAmount) <= 0) {
+      toast.error("Please enter a valid adjustment amount");
+      return;
+    }
+
+    const amount = parseFloat(adjustmentAmount);
+    const adjustment = adjustmentType === "reduce" ? -amount : amount;
+
+    setAdjusting(true);
+    try {
+      await axios.put(`${API}/credits/adjust`, {
+        user_id: adjustingCredit.user_id,
+        year: adjustingCredit.year,
+        category: adjustingCredit.category,
+        adjustment: adjustment,
+        reason: adjustmentReason
+      });
+      toast.success(`Credits ${adjustmentType === "reduce" ? "reduced" : "added"} successfully`);
+      closeAdjustDialog();
+      fetchData();
+    } catch (error) {
+      console.error("Error adjusting credits:", error);
+      toast.error(error.response?.data?.detail || "Failed to adjust credits");
+    } finally {
+      setAdjusting(false);
+    }
+  };
+
   const resetForm = () => {
     setFormUser("");
     setFormCategory("paid_holiday");
@@ -140,6 +179,21 @@ const HRCredits = () => {
   const openNewDialog = () => {
     resetForm();
     setIsDialogOpen(true);
+  };
+
+  const openAdjustDialog = (credit) => {
+    setAdjustingCredit(credit);
+    setAdjustmentAmount("");
+    setAdjustmentType("reduce");
+    setAdjustmentReason("");
+    setIsAdjustDialogOpen(true);
+  };
+
+  const closeAdjustDialog = () => {
+    setIsAdjustDialogOpen(false);
+    setAdjustingCredit(null);
+    setAdjustmentAmount("");
+    setAdjustmentReason("");
   };
 
   // Group credits by user for the selected year
@@ -311,25 +365,16 @@ const HRCredits = () => {
                     return (
                       <div 
                         key={cat.id} 
-                        className={`p-3 rounded-lg border ${credit ? '' : 'border-dashed opacity-60'} hover:shadow-sm transition-shadow cursor-pointer`}
-                        onClick={() => {
-                          if (credit) {
-                            openEditDialog(credit);
-                          } else {
-                            setFormUser(userData.user_id);
-                            setFormCategory(cat.id);
-                            setTotalDays(cat.id === "paid_holiday" ? "35" : "10");
-                            setFormYear(selectedYear);
-                            setIsDialogOpen(true);
-                          }
-                        }}
+                        className={`p-3 rounded-lg border ${credit ? '' : 'border-dashed opacity-60'} hover:shadow-sm transition-shadow`}
                         data-testid={`credit-card-${userData.user_id}-${cat.id}`}
                       >
-                        <div className="flex items-center gap-2 mb-2">
-                          <div className={`p-1.5 rounded ${colorClass}`}>
-                            <Icon size={14} />
+                        <div className="flex items-center justify-between mb-2">
+                          <div className="flex items-center gap-2">
+                            <div className={`p-1.5 rounded ${colorClass}`}>
+                              <Icon size={14} />
+                            </div>
+                            <span className="text-xs font-medium text-slate-600 truncate">{cat.name}</span>
                           </div>
-                          <span className="text-xs font-medium text-slate-600 truncate">{cat.name}</span>
                         </div>
                         {credit ? (
                           <>
@@ -347,9 +392,47 @@ const HRCredits = () => {
                               />
                             </div>
                             <p className="text-xs text-slate-500 mt-1">Used: {credit.used_days}</p>
+                            
+                            {/* Action buttons */}
+                            <div className="flex gap-1 mt-2">
+                              <Button
+                                size="sm"
+                                variant="outline"
+                                className="flex-1 h-7 text-xs"
+                                onClick={() => openEditDialog(credit)}
+                                data-testid={`edit-credit-${credit.credit_id}`}
+                              >
+                                <Edit size={12} className="mr-1" />
+                                Edit
+                              </Button>
+                              <Button
+                                size="sm"
+                                variant="outline"
+                                className="flex-1 h-7 text-xs text-amber-600 border-amber-200 hover:bg-amber-50"
+                                onClick={() => openAdjustDialog(credit)}
+                                data-testid={`adjust-credit-${credit.credit_id}`}
+                              >
+                                <Minus size={12} className="mr-1" />
+                                Adjust
+                              </Button>
+                            </div>
                           </>
                         ) : (
-                          <p className="text-xs text-slate-400">Click to assign</p>
+                          <Button
+                            size="sm"
+                            variant="ghost"
+                            className="w-full mt-2 text-xs"
+                            onClick={() => {
+                              setFormUser(userData.user_id);
+                              setFormCategory(cat.id);
+                              setTotalDays(cat.id === "paid_holiday" ? "35" : "10");
+                              setFormYear(selectedYear);
+                              setIsDialogOpen(true);
+                            }}
+                          >
+                            <Plus size={12} className="mr-1" />
+                            Assign
+                          </Button>
                         )}
                       </div>
                     );
@@ -368,7 +451,7 @@ const HRCredits = () => {
         </p>
       </div>
 
-      {/* Add/Edit Dialog */}
+      {/* Assign/Edit Credits Dialog */}
       <Dialog open={isDialogOpen} onOpenChange={setIsDialogOpen}>
         <DialogContent className="sm:max-w-md">
           <DialogHeader>
@@ -467,6 +550,141 @@ const HRCredits = () => {
               </Button>
             </DialogFooter>
           </div>
+        </DialogContent>
+      </Dialog>
+
+      {/* Adjust Credits Dialog */}
+      <Dialog open={isAdjustDialogOpen} onOpenChange={closeAdjustDialog}>
+        <DialogContent className="sm:max-w-md">
+          <DialogHeader>
+            <DialogTitle>Adjust Credits</DialogTitle>
+          </DialogHeader>
+          {adjustingCredit && (
+            <div className="space-y-4 mt-4">
+              {/* Credit Info */}
+              <div className="p-4 bg-slate-50 rounded-lg">
+                <div className="flex items-center gap-3 mb-2">
+                  {(() => {
+                    const Icon = categoryIcons[adjustingCredit.category] || Briefcase;
+                    const colorClass = categoryColors[adjustingCredit.category] || "bg-slate-100 text-slate-700";
+                    return (
+                      <div className={`p-2 rounded ${colorClass}`}>
+                        <Icon size={18} />
+                      </div>
+                    );
+                  })()}
+                  <div>
+                    <p className="font-medium text-slate-900">{adjustingCredit.user_name}</p>
+                    <p className="text-sm text-slate-600">{adjustingCredit.category_name}</p>
+                  </div>
+                </div>
+                <div className="grid grid-cols-3 gap-4 mt-3 text-center">
+                  <div className="p-2 bg-white rounded border">
+                    <p className="text-xs text-slate-500">Total</p>
+                    <p className="text-lg font-bold text-slate-900">{adjustingCredit.total_days}</p>
+                  </div>
+                  <div className="p-2 bg-white rounded border">
+                    <p className="text-xs text-slate-500">Used</p>
+                    <p className="text-lg font-bold text-amber-600">{adjustingCredit.used_days}</p>
+                  </div>
+                  <div className="p-2 bg-white rounded border">
+                    <p className="text-xs text-slate-500">Remaining</p>
+                    <p className="text-lg font-bold text-emerald-600">{adjustingCredit.remaining_days}</p>
+                  </div>
+                </div>
+              </div>
+
+              {/* Adjustment Type */}
+              <div>
+                <Label className="form-label">Action</Label>
+                <div className="flex gap-2">
+                  <Button
+                    type="button"
+                    variant={adjustmentType === "reduce" ? "default" : "outline"}
+                    className={`flex-1 ${adjustmentType === "reduce" ? "bg-red-600 hover:bg-red-700" : ""}`}
+                    onClick={() => setAdjustmentType("reduce")}
+                    data-testid="reduce-type-btn"
+                  >
+                    <Minus size={16} className="mr-2" />
+                    Reduce
+                  </Button>
+                  <Button
+                    type="button"
+                    variant={adjustmentType === "add" ? "default" : "outline"}
+                    className={`flex-1 ${adjustmentType === "add" ? "bg-emerald-600 hover:bg-emerald-700" : ""}`}
+                    onClick={() => setAdjustmentType("add")}
+                    data-testid="add-type-btn"
+                  >
+                    <PlusCircle size={16} className="mr-2" />
+                    Add
+                  </Button>
+                </div>
+              </div>
+
+              {/* Amount */}
+              <div>
+                <Label className="form-label">Days to {adjustmentType === "reduce" ? "Reduce" : "Add"}</Label>
+                <Input
+                  type="number"
+                  value={adjustmentAmount}
+                  onChange={(e) => setAdjustmentAmount(e.target.value)}
+                  min="0.5"
+                  max={adjustmentType === "reduce" ? adjustingCredit.remaining_days : 365}
+                  step="0.5"
+                  placeholder="Enter number of days"
+                  data-testid="adjustment-amount-input"
+                />
+                {adjustmentType === "reduce" && (
+                  <p className="text-xs text-slate-500 mt-1">
+                    Maximum: {adjustingCredit.remaining_days} days
+                  </p>
+                )}
+              </div>
+
+              {/* Preview */}
+              {adjustmentAmount && parseFloat(adjustmentAmount) > 0 && (
+                <div className={`p-3 rounded-lg ${adjustmentType === "reduce" ? "bg-red-50 border border-red-200" : "bg-emerald-50 border border-emerald-200"}`}>
+                  <p className={`text-sm font-medium ${adjustmentType === "reduce" ? "text-red-700" : "text-emerald-700"}`}>
+                    After adjustment:
+                  </p>
+                  <p className={`text-lg font-bold ${adjustmentType === "reduce" ? "text-red-800" : "text-emerald-800"}`}>
+                    {adjustmentType === "reduce" 
+                      ? adjustingCredit.remaining_days - parseFloat(adjustmentAmount)
+                      : adjustingCredit.remaining_days + parseFloat(adjustmentAmount)
+                    } days remaining
+                  </p>
+                </div>
+              )}
+
+              {/* Reason */}
+              <div>
+                <Label className="form-label">Reason (optional)</Label>
+                <Textarea
+                  value={adjustmentReason}
+                  onChange={(e) => setAdjustmentReason(e.target.value)}
+                  placeholder="Enter reason for adjustment..."
+                  data-testid="adjustment-reason-input"
+                />
+              </div>
+
+              <DialogFooter className="pt-4">
+                <Button
+                  variant="outline"
+                  onClick={closeAdjustDialog}
+                >
+                  Cancel
+                </Button>
+                <Button
+                  className={adjustmentType === "reduce" ? "bg-red-600 hover:bg-red-700" : "bg-emerald-600 hover:bg-emerald-700"}
+                  onClick={handleAdjust}
+                  disabled={adjusting || !adjustmentAmount || parseFloat(adjustmentAmount) <= 0}
+                  data-testid="confirm-adjust-btn"
+                >
+                  {adjusting ? "Adjusting..." : `${adjustmentType === "reduce" ? "Reduce" : "Add"} Credits`}
+                </Button>
+              </DialogFooter>
+            </div>
+          )}
         </DialogContent>
       </Dialog>
     </div>
