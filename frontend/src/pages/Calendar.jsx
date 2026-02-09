@@ -7,7 +7,12 @@ import {
   ChevronRight,
   Calendar as CalendarIcon,
   User,
-  Star
+  Star,
+  Briefcase,
+  Heart,
+  Baby,
+  Thermometer,
+  DollarOff
 } from "lucide-react";
 import { Button } from "../components/ui/button";
 import { Card, CardContent, CardHeader, CardTitle } from "../components/ui/card";
@@ -25,11 +30,29 @@ import {
   endOfWeek
 } from "date-fns";
 
+// Category icons and colors
+const categoryIcons = {
+  paid_holiday: Briefcase,
+  unpaid_leave: DollarOff,
+  sick_leave: Thermometer,
+  parental_leave: Heart,
+  maternity_leave: Baby
+};
+
+const categoryColors = {
+  paid_holiday: "bg-blue-200 text-blue-800",
+  unpaid_leave: "bg-slate-200 text-slate-800",
+  sick_leave: "bg-red-200 text-red-800",
+  parental_leave: "bg-purple-200 text-purple-800",
+  maternity_leave: "bg-pink-200 text-pink-800"
+};
+
 const Calendar = () => {
   const { user } = useContext(AuthContext);
   const [currentDate, setCurrentDate] = useState(new Date());
   const [events, setEvents] = useState([]);
   const [publicHolidays, setPublicHolidays] = useState([]);
+  const [categories, setCategories] = useState([]);
   const [loading, setLoading] = useState(true);
 
   useEffect(() => {
@@ -42,13 +65,15 @@ const Calendar = () => {
       const year = currentDate.getFullYear();
       const month = currentDate.getMonth() + 1;
       
-      const [eventsRes, holidaysRes] = await Promise.all([
+      const [eventsRes, holidaysRes, categoriesRes] = await Promise.all([
         axios.get(`${API}/calendar/events?year=${year}&month=${month}`),
-        axios.get(`${API}/public-holidays?year=${year}`)
+        axios.get(`${API}/public-holidays?year=${year}`),
+        axios.get(`${API}/categories`)
       ]);
       
       setEvents(eventsRes.data);
       setPublicHolidays(holidaysRes.data);
+      setCategories(categoriesRes.data);
     } catch (error) {
       console.error("Error fetching events:", error);
       toast.error("Failed to load calendar events");
