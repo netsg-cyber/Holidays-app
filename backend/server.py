@@ -391,7 +391,7 @@ async def logout(request: Request, response: Response):
 
 # ==================== HOLIDAY REQUEST ROUTES ====================
 
-@api_router.post("/requests", response_model=dict)
+@api_router.post("/requests", response_model=dict, status_code=201)
 async def create_holiday_request(req: HolidayRequestCreate, user: User = Depends(get_current_user)):
     """Create a new holiday request"""
     # Check if user has enough credits
