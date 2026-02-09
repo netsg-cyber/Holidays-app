@@ -11,12 +11,15 @@ import {
   XCircle,
   ExternalLink,
   Users,
-  Shield
+  Shield,
+  Plus,
+  Trash2
 } from "lucide-react";
 import { Card, CardContent, CardHeader, CardTitle, CardDescription } from "../components/ui/card";
 import { Button } from "../components/ui/button";
 import { Switch } from "../components/ui/switch";
 import { Label } from "../components/ui/label";
+import { Input } from "../components/ui/input";
 import {
   Select,
   SelectContent,
@@ -24,6 +27,24 @@ import {
   SelectTrigger,
   SelectValue,
 } from "../components/ui/select";
+import {
+  Dialog,
+  DialogContent,
+  DialogHeader,
+  DialogTitle,
+  DialogFooter,
+} from "../components/ui/dialog";
+import {
+  AlertDialog,
+  AlertDialogAction,
+  AlertDialogCancel,
+  AlertDialogContent,
+  AlertDialogDescription,
+  AlertDialogFooter,
+  AlertDialogHeader,
+  AlertDialogTitle,
+  AlertDialogTrigger,
+} from "../components/ui/alert-dialog";
 
 const HRSettings = () => {
   const { user } = useContext(AuthContext);
@@ -36,6 +57,13 @@ const HRSettings = () => {
   const [users, setUsers] = useState([]);
   const [loading, setLoading] = useState(true);
   const [saving, setSaving] = useState(false);
+  
+  // Add user dialog state
+  const [isAddUserOpen, setIsAddUserOpen] = useState(false);
+  const [newUserEmail, setNewUserEmail] = useState("");
+  const [newUserName, setNewUserName] = useState("");
+  const [newUserRole, setNewUserRole] = useState("employee");
+  const [addingUser, setAddingUser] = useState(false);
 
   useEffect(() => {
     if (user?.role !== "hr") return;
@@ -109,6 +137,50 @@ const HRSettings = () => {
     } catch (error) {
       console.error("Error updating role:", error);
       toast.error("Failed to update user role");
+    }
+  };
+
+  const handleAddUser = async () => {
+    if (!newUserEmail.trim() || !newUserName.trim()) {
+      toast.error("Please fill in all fields");
+      return;
+    }
+
+    // Basic email validation
+    if (!newUserEmail.includes("@")) {
+      toast.error("Please enter a valid email address");
+      return;
+    }
+
+    setAddingUser(true);
+    try {
+      await axios.post(`${API}/users`, {
+        email: newUserEmail.trim(),
+        name: newUserName.trim(),
+        role: newUserRole
+      });
+      toast.success("User added successfully");
+      setIsAddUserOpen(false);
+      setNewUserEmail("");
+      setNewUserName("");
+      setNewUserRole("employee");
+      fetchData();
+    } catch (error) {
+      console.error("Error adding user:", error);
+      toast.error(error.response?.data?.detail || "Failed to add user");
+    } finally {
+      setAddingUser(false);
+    }
+  };
+
+  const handleDeleteUser = async (userId) => {
+    try {
+      await axios.delete(`${API}/users/${userId}`);
+      toast.success("User deleted successfully");
+      fetchData();
+    } catch (error) {
+      console.error("Error deleting user:", error);
+      toast.error(error.response?.data?.detail || "Failed to delete user");
     }
   };
 
@@ -254,14 +326,24 @@ const HRSettings = () => {
 
         {/* User Management */}
         <Card className="bento-card">
-          <CardHeader>
-            <CardTitle className="text-lg flex items-center gap-2">
-              <Users className="w-5 h-5 text-blue-500" />
-              User Management
-            </CardTitle>
-            <CardDescription>
-              Manage user roles and permissions
-            </CardDescription>
+          <CardHeader className="flex flex-row items-center justify-between">
+            <div>
+              <CardTitle className="text-lg flex items-center gap-2">
+                <Users className="w-5 h-5 text-blue-500" />
+                User Management
+              </CardTitle>
+              <CardDescription>
+                Add, remove, and manage user roles
+              </CardDescription>
+            </div>
+            <Button
+              className="btn-primary flex items-center gap-2"
+              onClick={() => setIsAddUserOpen(true)}
+              data-testid="add-user-btn"
+            >
+              <Plus size={18} />
+              Add User
+            </Button>
           </CardHeader>
           <CardContent>
             <div className="overflow-x-auto">
@@ -272,6 +354,7 @@ const HRSettings = () => {
                     <th>Email</th>
                     <th>Role</th>
                     <th>Change Role</th>
+                    <th>Actions</th>
                   </tr>
                 </thead>
                 <tbody>
@@ -316,6 +399,41 @@ const HRSettings = () => {
                           </SelectContent>
                         </Select>
                       </td>
+                      <td>
+                        {u.user_id !== user.user_id ? (
+                          <AlertDialog>
+                            <AlertDialogTrigger asChild>
+                              <Button
+                                size="sm"
+                                variant="ghost"
+                                className="text-red-600 hover:text-red-700 hover:bg-red-50"
+                                data-testid={`delete-user-btn-${u.user_id}`}
+                              >
+                                <Trash2 size={16} />
+                              </Button>
+                            </AlertDialogTrigger>
+                            <AlertDialogContent>
+                              <AlertDialogHeader>
+                                <AlertDialogTitle>Delete User</AlertDialogTitle>
+                                <AlertDialogDescription>
+                                  Are you sure you want to delete <strong>{u.name}</strong>? This will also delete all their holiday requests and credits. This action cannot be undone.
+                                </AlertDialogDescription>
+                              </AlertDialogHeader>
+                              <AlertDialogFooter>
+                                <AlertDialogCancel>Cancel</AlertDialogCancel>
+                                <AlertDialogAction
+                                  className="bg-red-600 hover:bg-red-700"
+                                  onClick={() => handleDeleteUser(u.user_id)}
+                                >
+                                  Delete
+                                </AlertDialogAction>
+                              </AlertDialogFooter>
+                            </AlertDialogContent>
+                          </AlertDialog>
+                        ) : (
+                          <span className="text-xs text-slate-400">You</span>
+                        )}
+                      </td>
                     </tr>
                   ))}
                 </tbody>
@@ -340,6 +458,67 @@ const HRSettings = () => {
           </CardContent>
         </Card>
       </div>
+
+      {/* Add User Dialog */}
+      <Dialog open={isAddUserOpen} onOpenChange={setIsAddUserOpen}>
+        <DialogContent className="sm:max-w-md">
+          <DialogHeader>
+            <DialogTitle>Add New User</DialogTitle>
+          </DialogHeader>
+          <div className="space-y-4 mt-4">
+            <div>
+              <Label className="form-label">Email Address</Label>
+              <Input
+                type="email"
+                value={newUserEmail}
+                onChange={(e) => setNewUserEmail(e.target.value)}
+                placeholder="user@example.com"
+                data-testid="new-user-email-input"
+              />
+            </div>
+            <div>
+              <Label className="form-label">Full Name</Label>
+              <Input
+                value={newUserName}
+                onChange={(e) => setNewUserName(e.target.value)}
+                placeholder="John Doe"
+                data-testid="new-user-name-input"
+              />
+            </div>
+            <div>
+              <Label className="form-label">Role</Label>
+              <Select value={newUserRole} onValueChange={setNewUserRole}>
+                <SelectTrigger data-testid="new-user-role-select">
+                  <SelectValue placeholder="Select role" />
+                </SelectTrigger>
+                <SelectContent>
+                  <SelectItem value="employee">Employee</SelectItem>
+                  <SelectItem value="hr">HR Manager</SelectItem>
+                </SelectContent>
+              </Select>
+            </div>
+            <p className="text-sm text-slate-500">
+              The user will be able to login with Google using this email address. Default holiday credits will be assigned automatically.
+            </p>
+            <DialogFooter className="pt-4">
+              <Button
+                variant="outline"
+                onClick={() => setIsAddUserOpen(false)}
+              >
+                Cancel
+              </Button>
+              <Button
+                className="btn-primary"
+                onClick={handleAddUser}
+                disabled={addingUser}
+                data-testid="confirm-add-user-btn"
+              >
+                {addingUser ? "Adding..." : "Add User"}
+              </Button>
+            </DialogFooter>
+          </div>
+        </DialogContent>
+      </Dialog>
     </div>
   );
 };
