@@ -656,6 +656,11 @@ async def create_or_update_credit(credit: HolidayCreditCreate, user: User = Depe
     
     category_name = next((c["name"] for c in HOLIDAY_CATEGORIES if c["id"] == credit.category), credit.category)
     
+    # For paid_holiday, set default expiration to July 31 of next year
+    expires_at = credit.expires_at
+    if credit.category == "paid_holiday" and not expires_at:
+        expires_at = f"{credit.year + 1}-07-31"
+    
     existing = await db.holiday_credits.find_one(
         {"user_id": credit.user_id, "year": credit.year, "category": credit.category}, {"_id": 0}
     )
@@ -663,13 +668,20 @@ async def create_or_update_credit(credit: HolidayCreditCreate, user: User = Depe
     if existing:
         # Update existing credit
         new_remaining = credit.total_days - existing["used_days"]
+        update_data = {
+            "total_days": credit.total_days,
+            "remaining_days": new_remaining,
+            "updated_at": datetime.now(timezone.utc).isoformat()
+        }
+        # Only update expires_at if provided or if it's paid_holiday
+        if expires_at or credit.category == "paid_holiday":
+            update_data["expires_at"] = expires_at
+        elif credit.expires_at is not None:  # Explicitly set to None to clear
+            update_data["expires_at"] = None
+            
         await db.holiday_credits.update_one(
             {"user_id": credit.user_id, "year": credit.year, "category": credit.category},
-            {"$set": {
-                "total_days": credit.total_days,
-                "remaining_days": new_remaining,
-                "updated_at": datetime.now(timezone.utc).isoformat()
-            }}
+            {"$set": update_data}
         )
     else:
         # Create new credit
@@ -683,12 +695,14 @@ async def create_or_update_credit(credit: HolidayCreditCreate, user: User = Depe
             "total_days": credit.total_days,
             "used_days": 0.0,
             "remaining_days": credit.total_days,
+            "expires_at": expires_at,
             "created_at": datetime.now(timezone.utc).isoformat(),
             "updated_at": datetime.now(timezone.utc).isoformat()
         }
         await db.holiday_credits.insert_one(credit_doc)
     
     # Notify employee
+    expiry_text = f"<p><strong>Expires:</strong> {expires_at}</p>" if expires_at else ""
     await send_email_notification(
         target_user["email"],
         f"{category_name} Credits Updated for {credit.year}",
@@ -696,6 +710,7 @@ async def create_or_update_credit(credit: HolidayCreditCreate, user: User = Depe
         <h2>{category_name} Credits Updated</h2>
         <p>Your {category_name} credits for {credit.year} have been updated.</p>
         <p><strong>Total Days:</strong> {credit.total_days}</p>
+        {expiry_text}
         """
     )
     
