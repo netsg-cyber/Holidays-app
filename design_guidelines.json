@@ -1,0 +1,152 @@
+{
+  "identity": {
+    "name": "E1",
+    "archetype": "The Anti-AI Designer",
+    "mission": "Create a professional, trustworthy, and efficient Holiday Management System that feels modern and human, not generic corporate software."
+  },
+  "typography": {
+    "headings": {
+      "family": "Manrope",
+      "weights": ["600", "700", "800"],
+      "usage": "Use for all page titles, section headers, and modal titles. Tracking tight (-0.02em).",
+      "fallback": "sans-serif"
+    },
+    "body": {
+      "family": "Inter",
+      "weights": ["400", "500"],
+      "usage": "Use for all standard text, form labels, and data tables. Tracking normal.",
+      "fallback": "sans-serif"
+    },
+    "mono": {
+      "family": "JetBrains Mono",
+      "weights": ["400"],
+      "usage": "Use for ID numbers, dates in tables, or technical data.",
+      "fallback": "monospace"
+    }
+  },
+  "colors": {
+    "palette": {
+      "primary": {
+        "DEFAULT": "#0F172A",
+        "foreground": "#F8FAFC",
+        "description": "Deep Slate/Navy. Used for primary actions, active states, and strong branding elements."
+      },
+      "secondary": {
+        "DEFAULT": "#F1F5F9",
+        "foreground": "#0F172A",
+        "description": "Light Slate. Used for secondary buttons, backgrounds of cards, and subtle dividers."
+      },
+      "accent": {
+        "DEFAULT": "#3B82F6",
+        "foreground": "#FFFFFF",
+        "description": "Trust Blue. Used for links, focus rings, and active calendar dates."
+      },
+      "background": {
+        "DEFAULT": "#FFFFFF",
+        "subtle": "#F8FAFC",
+        "description": "Pure white for main content, subtle slate for page background."
+      },
+      "status": {
+        "approved": "#10B981",
+        "pending": "#F59E0B",
+        "rejected": "#EF4444",
+        "neutral": "#64748B"
+      }
+    },
+    "gradients": {
+      "subtle_glow": "linear-gradient(135deg, rgba(59, 130, 246, 0.1) 0%, rgba(255, 255, 255, 0) 100%)",
+      "card_hover": "linear-gradient(to bottom right, rgba(255,255,255,0.8), rgba(255,255,255,0.4))"
+    }
+  },
+  "layout": {
+    "grid_system": {
+      "dashboard": "grid-cols-1 md:grid-cols-3 lg:grid-cols-4 gap-6",
+      "calendar": "grid-cols-7 gap-px bg-slate-200",
+      "form": "grid-cols-1 md:grid-cols-2 gap-6"
+    },
+    "spacing": {
+      "container_padding": "p-6 md:p-8 lg:p-12",
+      "section_gap": "gap-8",
+      "component_gap": "gap-4"
+    },
+    "containers": {
+      "card": "bg-white border border-slate-200 rounded-xl shadow-sm hover:shadow-md transition-all duration-200",
+      "modal": "bg-white rounded-2xl shadow-2xl border border-slate-100",
+      "sidebar": "bg-slate-900 text-slate-300 w-64 hidden md:flex flex-col"
+    }
+  },
+  "components": {
+    "buttons": {
+      "primary": "bg-slate-900 text-white hover:bg-slate-800 rounded-lg px-6 py-2.5 font-medium transition-all active:scale-95",
+      "secondary": "bg-white text-slate-700 border border-slate-200 hover:bg-slate-50 rounded-lg px-6 py-2.5 font-medium transition-all",
+      "ghost": "text-slate-600 hover:bg-slate-100 hover:text-slate-900 rounded-lg px-4 py-2 transition-all"
+    },
+    "inputs": {
+      "default": "h-11 rounded-lg border-slate-200 focus:ring-2 focus:ring-blue-100 focus:border-blue-500 transition-all",
+      "label": "text-sm font-medium text-slate-700 mb-1.5 block"
+    },
+    "status_badge": {
+      "base": "inline-flex items-center px-2.5 py-0.5 rounded-full text-xs font-medium",
+      "approved": "bg-emerald-50 text-emerald-700 border border-emerald-100",
+      "pending": "bg-amber-50 text-amber-700 border border-amber-100",
+      "rejected": "bg-red-50 text-red-700 border border-red-100"
+    }
+  },
+  "visual_enhancers": {
+    "shadows": {
+      "soft": "0 2px 8px -2px rgba(15, 23, 42, 0.05), 0 1px 4px -1px rgba(15, 23, 42, 0.02)",
+      "float": "0 12px 24px -8px rgba(15, 23, 42, 0.08), 0 4px 8px -4px rgba(15, 23, 42, 0.04)"
+    },
+    "borders": {
+      "subtle": "1px solid #E2E8F0",
+      "focus": "2px solid #3B82F6"
+    },
+    "radius": {
+      "default": "0.75rem",
+      "small": "0.5rem",
+      "full": "9999px"
+    }
+  },
+  "motion": {
+    "page_transition": {
+      "initial": { "opacity": 0, "y": 10 },
+      "animate": { "opacity": 1, "y": 0 },
+      "exit": { "opacity": 0, "y": -10 },
+      "transition": { "duration": 0.3, "ease": "easeOut" }
+    },
+    "list_item": {
+      "initial": { "opacity": 0, "x": -10 },
+      "animate": { "opacity": 1, "x": 0 },
+      "transition": { "type": "spring", "stiffness": 300, "damping": 24 }
+    }
+  },
+  "image_urls": {
+    "login_bg": {
+      "url": "https://images.unsplash.com/photo-1588084580191-db8604397b3d?crop=entropy&cs=srgb&fm=jpg&ixid=M3w3NTY2Nzd8MHwxfHNlYXJjaHwyfHxtb2Rlcm4lMjBtaW5pbWFsJTIwb2ZmaWNlJTIwaW50ZXJpb3IlMjBicmlnaHR8ZW58MHx8fHwxNzcwNjM0OTA4fDA&ixlib=rb-4.1.0&q=85",
+      "description": "Modern minimal office interior, use for login page background with overlay."
+    },
+    "team_avatar": {
+      "url": "https://images.unsplash.com/photo-1650784854945-264d5b0b6b07?crop=entropy&cs=srgb&fm=jpg&ixid=M3w3NTY2NzV8MHwxfHNlYXJjaHwxfHxwcm9mZXNzaW9uYWwlMjBkaXZlcnNlJTIwYnVzaW5lc3MlMjB0ZWFtJTIwcG9ydHJhaXRzfGVufDB8fHx8MTc3MDYzNDkwOXww&ixlib=rb-4.1.0&q=85",
+      "description": "Professional team photo, use for 'About' or generic avatar placeholders."
+    },
+    "abstract_texture": {
+      "url": "https://images.unsplash.com/photo-1759031807437-759e1f37da66?crop=entropy&cs=srgb&fm=jpg&ixid=M3w3NTY2NzZ8MHwxfHNlYXJjaHwxfHxhYnN0cmFjdCUyMGdlb21ldHJpYyUyMHNoYXBlcyUyMHNvZnQlMjBibHVlJTIwd2hpdGUlMjBiYWNrZ3JvdW5kfGVufDB8fHx8MTc3MDYzNDkxMXww&ixlib=rb-4.1.0&q=85",
+      "description": "Soft abstract blue/white shapes, use for card backgrounds or subtle decorative elements."
+    }
+  },
+  "instructions_to_main_agent": {
+    "general": "Build a clean, responsive, and professional Holiday Management System. Prioritize clarity and ease of use. The app must work well within an iframe (avoid double scrollbars).",
+    "theme": "Default to Light Mode. Use the defined color palette strictly. Do not use generic 'blue' or 'red', use the specific hex codes provided.",
+    "components": "Use Shadcn/UI components but customize them with the provided styles (radius, shadows, borders). Do not use the default 'Vercel' look.",
+    "calendar": "The calendar is the heart of the app. Make it visually distinct. Use the 'status' colors to indicate approved/pending holidays on the calendar grid.",
+    "dashboard": "Use the 'Bento' grid layout for the dashboard. Mix different card sizes to create visual interest.",
+    "testing": "Add 'data-testid' to all interactive elements (buttons, inputs, links) for testing."
+  },
+  "UNIVERSAL_GUIDELINES_FOR_MAIN_AGENT": {
+    "design_philosophy": "Avoid 'AI Slop'. Create depth with layered shadows and subtle borders. Use generous spacing.",
+    "interactions": "Every interaction must have a micro-animation (hover, focus, active). Use 'framer-motion' for smooth page transitions.",
+    "layout": "Do not center-align the main container. Use a proper layout with a sidebar or top navigation.",
+    "accessibility": "Ensure all text meets APCA contrast standards. Use semantic HTML.",
+    "code_structure": "Use named exports for components. Keep components small and reusable."
+  }
+}
