@@ -284,6 +284,131 @@ print('Session Token: ' + sessionToken);
         if success:
             self.log(f"   Found {len(events)} calendar events")
 
+    def test_category_specific_features(self):
+        """Test category-specific functionality"""
+        self.log("\n🏷️ Testing Category-Specific Features...")
+        
+        # Test categories endpoint
+        success, categories = self.run_test("Get Holiday Categories", "GET", "categories", 200)
+        if success and categories:
+            self.log(f"   Found {len(categories)} categories")
+            category_ids = [cat.get('id') for cat in categories]
+            
+            # Check all 5 expected categories exist
+            for expected_cat in self.expected_categories:
+                if expected_cat in category_ids:
+                    self.log(f"   ✅ Category '{expected_cat}' found")
+                else:
+                    self.log(f"   ❌ Category '{expected_cat}' missing")
+                    self.failed_tests.append({
+                        "test": f"Category {expected_cat} exists",
+                        "error": "Category not found in response"
+                    })
+        
+        # Test credits by category
+        success, credits = self.run_test("Get Credits by Category", "GET", "credits/my", 200)
+        if success and credits:
+            found_categories = set()
+            for credit in credits:
+                if 'category' in credit:
+                    found_categories.add(credit['category'])
+                    self.log(f"   ✅ Credit for '{credit['category']}': {credit.get('remaining_days', 0)} days")
+            
+            # Check if all categories have credits
+            missing_categories = set(self.expected_categories) - found_categories
+            if missing_categories:
+                self.log(f"   ⚠️ Missing credits for categories: {missing_categories}")
+        
+        # Test creating requests with different categories
+        self.test_requests_with_categories()
+        
+        # Test creating credits for specific categories
+        self.test_create_credits_by_category()
+
+    def test_requests_with_categories(self):
+        """Test creating requests with different category values"""
+        self.log("\n📝 Testing Requests with Different Categories...")
+        
+        start_date = (datetime.now() + timedelta(days=7)).strftime('%Y-%m-%d')
+        end_date = (datetime.now() + timedelta(days=8)).strftime('%Y-%m-%d')
+        
+        categories_to_test = [
+            ('paid_holiday', 'Annual vacation'),
+            ('sick_leave', 'Medical appointment'),
+            ('parental_leave', 'Child care needs')
+        ]
+        
+        for category, reason in categories_to_test:
+            request_data = {
+                "category": category,
+                "start_date": start_date,
+                "end_date": end_date,
+                "days_count": 1.0,
+                "reason": reason
+            }
+            
+            success, response = self.run_test(
+                f"Create Request with Category '{category}'", 
+                "POST", "requests", 201, request_data
+            )
+            
+            if success:
+                self.log(f"   ✅ Request created for category '{category}'")
+            else:
+                self.log(f"   ❌ Failed to create request for category '{category}'")
+
+    def test_create_credits_by_category(self):
+        """Test creating credits for specific categories"""
+        self.log("\n💳 Testing Credit Creation by Category...")
+        
+        # Create a test employee first
+        timestamp = int(time.time())
+        emp_user_id = f"test-emp-{timestamp}"
+        emp_email = f"test.emp.{timestamp}@example.com"
+        
+        emp_script = f'''
+use('test_database');
+db.users.insertOne({{
+  user_id: '{emp_user_id}',
+  email: '{emp_email}',
+  name: 'Test Employee',
+  role: 'employee',
+  created_at: new Date()
+}});
+print('Employee created: {emp_user_id}');
+'''
+        
+        try:
+            subprocess.run(['mongosh', '--eval', emp_script], 
+                          capture_output=True, text=True, timeout=10)
+        except:
+            pass
+        
+        # Test creating credits for different categories
+        categories_to_test = [
+            ('paid_holiday', 25.0),
+            ('sick_leave', 8.0),
+            ('maternity_leave', 120.0)
+        ]
+        
+        for category, days in categories_to_test:
+            credit_data = {
+                "user_id": emp_user_id,
+                "year": datetime.now().year,
+                "category": category,
+                "total_days": days
+            }
+            
+            success, response = self.run_test(
+                f"Create Credit for Category '{category}'",
+                "POST", "credits", 200, credit_data
+            )
+            
+            if success:
+                self.log(f"   ✅ Credit created for category '{category}': {days} days")
+            else:
+                self.log(f"   ❌ Failed to create credit for category '{category}'")
+
     def cleanup_test_data(self):
         """Clean up test data from MongoDB"""
         self.log("\n🧹 Cleaning up test data...")
