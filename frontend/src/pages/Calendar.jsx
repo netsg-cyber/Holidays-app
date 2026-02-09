@@ -157,10 +157,15 @@ const Calendar = () => {
 
       {/* Legend */}
       <div className="flex flex-wrap items-center gap-4 mb-6">
-        <div className="flex items-center gap-2">
-          <div className="w-4 h-4 bg-blue-200 rounded" />
-          <span className="text-sm text-slate-600">Employee Holiday</span>
-        </div>
+        {categories.map(cat => {
+          const colorClass = categoryColors[cat.id] || "bg-slate-200";
+          return (
+            <div key={cat.id} className="flex items-center gap-2">
+              <div className={`w-4 h-4 rounded ${colorClass.split(' ')[0]}`} />
+              <span className="text-sm text-slate-600">{cat.name}</span>
+            </div>
+          );
+        })}
         <div className="flex items-center gap-2">
           <div className="w-4 h-4 bg-emerald-200 rounded" />
           <span className="text-sm text-slate-600">Public Holiday</span>
