@@ -114,18 +114,29 @@ db.user_sessions.insertOne({{
   created_at: new Date()
 }});
 
-// Insert holiday credit
-db.holiday_credits.insertOne({{
-  credit_id: 'cred_test_' + Date.now(),
-  user_id: userId,
-  user_email: email,
-  user_name: 'Test User HR',
-  year: currentYear,
-  total_days: 35.0,
-  used_days: 0.0,
-  remaining_days: 35.0,
-  created_at: new Date(),
-  updated_at: new Date()
+// Insert holiday credits for all 5 categories
+var categories = [
+  {{id: 'paid_holiday', days: 35.0}},
+  {{id: 'unpaid_leave', days: 0.0}},
+  {{id: 'sick_leave', days: 5.0}},
+  {{id: 'parental_leave', days: 10.0}},
+  {{id: 'maternity_leave', days: 90.0}}
+];
+
+categories.forEach(function(cat) {{
+  db.holiday_credits.insertOne({{
+    credit_id: 'cred_test_' + cat.id + '_' + Date.now(),
+    user_id: userId,
+    user_email: email,
+    user_name: 'Test User HR',
+    year: currentYear,
+    category: cat.id,
+    total_days: cat.days,
+    used_days: 0.0,
+    remaining_days: cat.days,
+    created_at: new Date(),
+    updated_at: new Date()
+  }});
 }});
 
 print('SUCCESS: Test user created');
