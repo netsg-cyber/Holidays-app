@@ -11,7 +11,12 @@ import {
   Plus,
   TrendingUp,
   Calendar,
-  ArrowRight
+  ArrowRight,
+  Briefcase,
+  Heart,
+  Baby,
+  Thermometer,
+  DollarOff
 } from "lucide-react";
 import { Button } from "../components/ui/button";
 import { Card, CardContent, CardHeader, CardTitle } from "../components/ui/card";
@@ -27,17 +32,44 @@ import { Label } from "../components/ui/label";
 import { Textarea } from "../components/ui/textarea";
 import { Calendar as CalendarPicker } from "../components/ui/calendar";
 import { Popover, PopoverContent, PopoverTrigger } from "../components/ui/popover";
+import {
+  Select,
+  SelectContent,
+  SelectItem,
+  SelectTrigger,
+  SelectValue,
+} from "../components/ui/select";
 import { format, differenceInBusinessDays, addDays } from "date-fns";
+
+// Category icons mapping
+const categoryIcons = {
+  paid_holiday: Briefcase,
+  unpaid_leave: DollarOff,
+  sick_leave: Thermometer,
+  parental_leave: Heart,
+  maternity_leave: Baby
+};
+
+// Category colors mapping
+const categoryColors = {
+  paid_holiday: "bg-blue-100 text-blue-700 border-blue-200",
+  unpaid_leave: "bg-slate-100 text-slate-700 border-slate-200",
+  sick_leave: "bg-red-100 text-red-700 border-red-200",
+  parental_leave: "bg-purple-100 text-purple-700 border-purple-200",
+  maternity_leave: "bg-pink-100 text-pink-700 border-pink-200"
+};
 
 const Dashboard = () => {
   const { user } = useContext(AuthContext);
   const navigate = useNavigate();
   const [credits, setCredits] = useState([]);
+  const [categories, setCategories] = useState([]);
   const [requests, setRequests] = useState([]);
   const [loading, setLoading] = useState(true);
   const [isDialogOpen, setIsDialogOpen] = useState(false);
   
   // Form state
+  const [selectedCategory, setSelectedCategory] = useState("paid_holiday");
   const [startDate, setStartDate] = useState(null);
   const [endDate, setEndDate] = useState(null);
   const [reason, setReason] = useState("");
@@ -49,12 +81,14 @@ const Dashboard = () => {
 
   const fetchData = async () => {
     try {
-      const [creditsRes, requestsRes] = await Promise.all([
+      const [creditsRes, requestsRes, categoriesRes] = await Promise.all([
         axios.get(`${API}/credits/my`),
         axios.get(`${API}/requests/my`),
+        axios.get(`${API}/categories`),
       ]);
       setCredits(creditsRes.data);
       setRequests(requestsRes.data);
+      setCategories(categoriesRes.data);
     } catch (error) {
       console.error("Error fetching data:", error);
       toast.error("Failed to load data");
@@ -63,10 +97,15 @@ const Dashboard = () => {
     }
   };
 
-  const currentYearCredit = credits.find(c => c.year === new Date().getFullYear()) || {
-    total_days: 35,
-    used_days: 0,
-    remaining_days: 35
+  const currentYear = new Date().getFullYear();
+  const currentYearCredits = credits.filter(c => c.year === currentYear);
+  
+  const getCreditForCategory = (categoryId) => {
+    return currentYearCredits.find(c => c.category === categoryId) || {
+      total_days: 0,
+      used_days: 0,
+      remaining_days: 0
+    };
   };
 
   const pendingRequests = requests.filter(r => r.status === "pending").length;
@@ -90,14 +129,17 @@ const Dashboard = () => {
       return;
     }
 
-    if (daysCount > currentYearCredit.remaining_days) {
-      toast.error("Insufficient holiday credits");
+    const selectedCredit = getCreditForCategory(selectedCategory);
+    if (daysCount > selectedCredit.remaining_days) {
+      const categoryName = categories.find(c => c.id === selectedCategory)?.name || selectedCategory;
+      toast.error(`Insufficient ${categoryName} credits. Available: ${selectedCredit.remaining_days} days`);
       return;
     }
 
     setSubmitting(true);
     try {
       await axios.post(`${API}/requests`, {
+        category: selectedCategory,
         start_date: format(startDate, "yyyy-MM-dd"),
         end_date: format(endDate, "yyyy-MM-dd"),
         days_count: daysCount,
@@ -108,6 +150,7 @@ const Dashboard = () => {
       setStartDate(null);
       setEndDate(null);
       setReason("");
+      setSelectedCategory("paid_holiday");
       fetchData();
     } catch (error) {
       console.error("Error submitting request:", error);
@@ -118,6 +161,9 @@ const Dashboard = () => {
   };
 
   const recentRequests = requests.slice(0, 5);
+  const getCategoryName = (categoryId) => {
+    return categories.find(c => c.id === categoryId)?.name || categoryId;
+  };
 
   if (loading) {
     return (
@@ -151,9 +197,36 @@ const Dashboard = () => {
           </DialogTrigger>
           <DialogContent className="sm:max-w-md">
             <DialogHeader>
-              <DialogTitle>Request Holiday</DialogTitle>
+              <DialogTitle>Request Leave</DialogTitle>
             </DialogHeader>
             <form onSubmit={handleSubmit} className="space-y-4 mt-4">
+              {/* Category Selection */}
+              <div>
+                <Label className="form-label">Leave Type</Label>
+                <Select value={selectedCategory} onValueChange={setSelectedCategory}>
+                  <SelectTrigger data-testid="category-select">
+                    <SelectValue placeholder="Select leave type" />
+                  </SelectTrigger>
+                  <SelectContent>
+                    {categories.map(cat => {
+                      const credit = getCreditForCategory(cat.id);
+                      const Icon = categoryIcons[cat.id] || Briefcase;
+                      return (
+                        <SelectItem key={cat.id} value={cat.id}>
+                          <div className="flex items-center gap-2">
+                            <Icon size={16} />
+                            <span>{cat.name}</span>
+                            <span className="text-xs text-slate-500">
+                              ({credit.remaining_days} days left)
+                            </span>
+                          </div>
+                        </SelectItem>
+                      );
+                    })}
+                  </SelectContent>
+                </Select>
+              </div>
+
               <div className="grid grid-cols-2 gap-4">
                 <div>
                   <Label className="form-label">Start Date</Label>
@@ -245,64 +318,97 @@ const Dashboard = () => {
         </Dialog>
       </div>
 
+      {/* Credits by Category */}
+      <div className="mb-8">
+        <h2 className="text-lg font-semibold text-slate-900 mb-4">Your Leave Balance</h2>
+        <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-5 gap-4">
+          {categories.map(cat => {
+            const credit = getCreditForCategory(cat.id);
+            const Icon = categoryIcons[cat.id] || Briefcase;
+            const colorClass = categoryColors[cat.id] || "bg-slate-100 text-slate-700";
+            const percentage = credit.total_days > 0 
+              ? (credit.remaining_days / credit.total_days) * 100 
+              : 0;
+            
+            return (
+              <Card key={cat.id} className="bento-card">
+                <CardContent className="p-4">
+                  <div className="flex items-center gap-3 mb-3">
+                    <div className={`p-2 rounded-lg ${colorClass}`}>
+                      <Icon size={18} />
+                    </div>
+                    <div className="flex-1 min-w-0">
+                      <p className="text-xs font-medium text-slate-500 truncate">{cat.name}</p>
+                    </div>
+                  </div>
+                  <div className="flex items-baseline gap-1">
+                    <span className="text-2xl font-bold text-slate-900">{credit.remaining_days}</span>
+                    <span className="text-sm text-slate-500">/ {credit.total_days}</span>
+                  </div>
+                  <div className="mt-2 h-1.5 bg-slate-200 rounded-full overflow-hidden">
+                    <div
+                      className={`h-full rounded-full transition-all duration-500 ${
+                        percentage > 50 ? "bg-emerald-500" :
+                        percentage > 20 ? "bg-amber-500" : "bg-red-500"
+                      }`}
+                      style={{ width: `${percentage}%` }}
+                    />
+                  </div>
+                </CardContent>
+              </Card>
+            );
+          })}
+        </div>
+      </div>
+
       {/* Stats Grid */}
-      <div className="bento-grid mb-8">
-        {/* Remaining Days Card */}
-        <Card className="bento-card bento-card-large stat-card">
-          <CardContent className="p-6">
-            <div className="flex items-start justify-between">
-              <div>
-                <p className="text-sm font-medium text-slate-600 mb-1">
-                  Remaining Days
-                </p>
-                <p className="text-4xl font-bold text-slate-900">
-                  {currentYearCredit.remaining_days}
-                </p>
-                <p className="text-sm text-slate-500 mt-2">
-                  of {currentYearCredit.total_days} total days
-                </p>
-              </div>
-              <div className="p-3 bg-blue-100 rounded-xl">
-                <CalendarDays className="w-6 h-6 text-blue-600" />
-              </div>
-            </div>
-            <div className="mt-4 h-2 bg-slate-200 rounded-full overflow-hidden">
-              <div
-                className="h-full bg-blue-500 rounded-full transition-all duration-500"
-                style={{
-                  width: `${(currentYearCredit.remaining_days / currentYearCredit.total_days) * 100}%`
-                }}
-              />
-            </div>
-          </CardContent>
-        </Card>
-
-        {/* Pending Card */}
+      <div className="grid grid-cols-2 md:grid-cols-4 gap-4 mb-8">
         <Card className="bento-card">
-          <CardContent className="p-6">
-            <div className="flex items-start justify-between">
-              <div>
-                <p className="text-sm font-medium text-slate-600 mb-1">Pending</p>
-                <p className="text-3xl font-bold text-amber-600">{pendingRequests}</p>
+          <CardContent className="p-4">
+            <div className="flex items-center gap-3">
+              <div className="p-2 bg-amber-100 rounded-lg">
+                <Clock size={18} className="text-amber-600" />
               </div>
-              <div className="p-3 bg-amber-100 rounded-xl">
-                <Clock className="w-5 h-5 text-amber-600" />
+              <div>
+                <p className="text-xs text-slate-500">Pending</p>
+                <p className="text-xl font-bold text-amber-600">{pendingRequests}</p>
               </div>
             </div>
           </CardContent>
         </Card>
-
-        {/* Approved Card */}
         <Card className="bento-card">
-          <CardContent className="p-6">
-            <div className="flex items-start justify-between">
+          <CardContent className="p-4">
+            <div className="flex items-center gap-3">
+              <div className="p-2 bg-emerald-100 rounded-lg">
+                <CheckCircle size={18} className="text-emerald-600" />
+              </div>
               <div>
-                <p className="text-sm font-medium text-slate-600 mb-1">Approved</p>
-                <p className="text-3xl font-bold text-emerald-600">{approvedRequests}</p>
+                <p className="text-xs text-slate-500">Approved</p>
+                <p className="text-xl font-bold text-emerald-600">{approvedRequests}</p>
               </div>
-              <div className="p-3 bg-emerald-100 rounded-xl">
-                <CheckCircle className="w-5 h-5 text-emerald-600" />
+            </div>
+          </CardContent>
+        </Card>
+        <Card className="bento-card col-span-2">
+          <CardContent className="p-4">
+            <div className="flex items-center justify-between">
+              <div className="flex items-center gap-3">
+                <div className="p-2 bg-blue-100 rounded-lg">
+                  <Calendar size={18} className="text-blue-600" />
+                </div>
+                <div>
+                  <p className="text-xs text-slate-500">Total Requests</p>
+                  <p className="text-xl font-bold text-slate-900">{requests.length}</p>
+                </div>
               </div>
+              <Button
+                variant="ghost"
+                size="sm"
+                className="text-blue-600"
+                onClick={() => navigate("/my-requests")}
+              >
+                View All <ArrowRight size={16} className="ml-1" />
+              </Button>
             </div>
           </CardContent>
         </Card>
@@ -328,33 +434,47 @@ const Dashboard = () => {
               <Calendar className="empty-state-icon" />
               <p className="text-slate-600 font-medium">No requests yet</p>
               <p className="text-sm text-slate-500 mt-1">
-                Click "New Request" to submit your first holiday request
+                Click "New Request" to submit your first leave request
               </p>
             </div>
           ) : (
             <div className="space-y-3">
-              {recentRequests.map((req, idx) => (
-                <div
-                  key={req.request_id}
-                  className={`request-card request-card-${req.status} bg-white border border-slate-100 rounded-lg p-4 animate-slide-in`}
-                  style={{ animationDelay: `${idx * 50}ms` }}
-                  data-testid={`request-card-${req.request_id}`}
-                >
-                  <div className="flex items-center justify-between">
-                    <div>
-                      <p className="font-medium text-slate-900">
-                        {req.start_date} → {req.end_date}
-                      </p>
-                      <p className="text-sm text-slate-600 mt-1">
-                        {req.days_count} day(s) • {req.reason}
-                      </p>
+              {recentRequests.map((req, idx) => {
+                const Icon = categoryIcons[req.category] || Briefcase;
+                const colorClass = categoryColors[req.category] || "bg-slate-100 text-slate-700";
+                return (
+                  <div
+                    key={req.request_id}
+                    className={`request-card request-card-${req.status} bg-white border border-slate-100 rounded-lg p-4 animate-slide-in`}
+                    style={{ animationDelay: `${idx * 50}ms` }}
+                    data-testid={`request-card-${req.request_id}`}
+                  >
+                    <div className="flex items-center justify-between">
+                      <div className="flex items-start gap-3">
+                        <div className={`p-2 rounded-lg ${colorClass}`}>
+                          <Icon size={16} />
+                        </div>
+                        <div>
+                          <div className="flex items-center gap-2 mb-1">
+                            <span className="text-sm font-medium text-slate-700">
+                              {getCategoryName(req.category)}
+                            </span>
+                            <span className={`badge badge-${req.status}`}>
+                              {req.status.charAt(0).toUpperCase() + req.status.slice(1)}
+                            </span>
+                          </div>
+                          <p className="font-medium text-slate-900">
+                            {req.start_date} → {req.end_date}
+                          </p>
+                          <p className="text-sm text-slate-600 mt-1">
+                            {req.days_count} day(s) • {req.reason}
+                          </p>
+                        </div>
+                      </div>
                     </div>
-                    <span className={`badge badge-${req.status}`}>
-                      {req.status.charAt(0).toUpperCase() + req.status.slice(1)}
-                    </span>
                   </div>
-                </div>
-              ))}
+                );
+              })}
             </div>
           )}
         </CardContent>
