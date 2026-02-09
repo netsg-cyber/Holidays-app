@@ -797,6 +797,79 @@ async def update_user_role(user_id: str, role: str, current_user: User = Depends
     
     return {"message": "Role updated successfully"}
 
+class UserCreate(BaseModel):
+    email: str
+    name: str
+    role: str = "employee"
+
+@api_router.post("/users", status_code=201)
+async def create_user(user_data: UserCreate, current_user: User = Depends(get_hr_user)):
+    """Create a new user (HR only)"""
+    # Check if user already exists
+    existing = await db.users.find_one({"email": user_data.email}, {"_id": 0})
+    if existing:
+        raise HTTPException(status_code=400, detail="User with this email already exists")
+    
+    if user_data.role not in ["employee", "hr"]:
+        raise HTTPException(status_code=400, detail="Invalid role")
+    
+    user_id = f"user_{uuid.uuid4().hex[:12]}"
+    new_user = {
+        "user_id": user_id,
+        "email": user_data.email,
+        "name": user_data.name,
+        "picture": None,
+        "role": user_data.role,
+        "created_at": datetime.now(timezone.utc).isoformat()
+    }
+    await db.users.insert_one(new_user)
+    
+    # Create default holiday credits for all categories
+    current_year = datetime.now().year
+    for cat_id, default_days in DEFAULT_CREDITS.items():
+        credit = {
+            "credit_id": f"cred_{uuid.uuid4().hex[:12]}",
+            "user_id": user_id,
+            "user_email": user_data.email,
+            "user_name": user_data.name,
+            "year": current_year,
+            "category": cat_id,
+            "total_days": default_days,
+            "used_days": 0.0,
+            "remaining_days": default_days,
+            "created_at": datetime.now(timezone.utc).isoformat(),
+            "updated_at": datetime.now(timezone.utc).isoformat()
+        }
+        await db.holiday_credits.insert_one(credit)
+    
+    return {"message": "User created successfully", "user_id": user_id}
+
+@api_router.delete("/users/{user_id}")
+async def delete_user(user_id: str, current_user: User = Depends(get_hr_user)):
+    """Delete a user (HR only)"""
+    # Prevent deleting yourself
+    if user_id == current_user.user_id:
+        raise HTTPException(status_code=400, detail="Cannot delete your own account")
+    
+    # Check if user exists
+    user_to_delete = await db.users.find_one({"user_id": user_id}, {"_id": 0})
+    if not user_to_delete:
+        raise HTTPException(status_code=404, detail="User not found")
+    
+    # Delete user
+    await db.users.delete_one({"user_id": user_id})
+    
+    # Delete user's sessions
+    await db.user_sessions.delete_many({"user_id": user_id})
+    
+    # Delete user's holiday credits
+    await db.holiday_credits.delete_many({"user_id": user_id})
+    
+    # Delete user's holiday requests
+    await db.holiday_requests.delete_many({"user_id": user_id})
+    
+    return {"message": "User deleted successfully"}
+
 # ==================== SETTINGS ROUTES ====================
 
 @api_router.get("/settings")
