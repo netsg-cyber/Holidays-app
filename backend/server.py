@@ -601,13 +601,25 @@ async def get_my_credits(user: User = Depends(get_current_user)):
     """Get current user's holiday credits"""
     credits = await db.holiday_credits.find(
         {"user_id": user.user_id}, {"_id": 0}
-    ).sort("year", -1).to_list(10)
+    ).sort([("year", -1), ("category", 1)]).to_list(100)
+    
+    # Add category name to each credit
+    for credit in credits:
+        category_info = next((c for c in HOLIDAY_CATEGORIES if c["id"] == credit.get("category", "paid_holiday")), None)
+        credit["category_name"] = category_info["name"] if category_info else credit.get("category", "Paid Holidays")
+    
     return credits
 
 @api_router.get("/credits/all")
 async def get_all_credits(user: User = Depends(get_hr_user)):
     """Get all users' holiday credits (HR only)"""
-    credits = await db.holiday_credits.find({}, {"_id": 0}).sort([("year", -1), ("user_name", 1)]).to_list(1000)
+    credits = await db.holiday_credits.find({}, {"_id": 0}).sort([("year", -1), ("user_name", 1), ("category", 1)]).to_list(5000)
+    
+    # Add category name to each credit
+    for credit in credits:
+        category_info = next((c for c in HOLIDAY_CATEGORIES if c["id"] == credit.get("category", "paid_holiday")), None)
+        credit["category_name"] = category_info["name"] if category_info else credit.get("category", "Paid Holidays")
+    
     return credits
 
 @api_router.post("/credits")
@@ -617,15 +629,22 @@ async def create_or_update_credit(credit: HolidayCreditCreate, user: User = Depe
     if not target_user:
         raise HTTPException(status_code=404, detail="User not found")
     
+    # Validate category
+    valid_categories = [c["id"] for c in HOLIDAY_CATEGORIES]
+    if credit.category not in valid_categories:
+        raise HTTPException(status_code=400, detail="Invalid holiday category")
+    
+    category_name = next((c["name"] for c in HOLIDAY_CATEGORIES if c["id"] == credit.category), credit.category)
+    
     existing = await db.holiday_credits.find_one(
-        {"user_id": credit.user_id, "year": credit.year}, {"_id": 0}
+        {"user_id": credit.user_id, "year": credit.year, "category": credit.category}, {"_id": 0}
     )
     
     if existing:
         # Update existing credit
         new_remaining = credit.total_days - existing["used_days"]
         await db.holiday_credits.update_one(
-            {"user_id": credit.user_id, "year": credit.year},
+            {"user_id": credit.user_id, "year": credit.year, "category": credit.category},
             {"$set": {
                 "total_days": credit.total_days,
                 "remaining_days": new_remaining,
@@ -640,6 +659,7 @@ async def create_or_update_credit(credit: HolidayCreditCreate, user: User = Depe
             "user_email": target_user["email"],
             "user_name": target_user["name"],
             "year": credit.year,
+            "category": credit.category,
             "total_days": credit.total_days,
             "used_days": 0.0,
             "remaining_days": credit.total_days,
@@ -651,10 +671,10 @@ async def create_or_update_credit(credit: HolidayCreditCreate, user: User = Depe
     # Notify employee
     await send_email_notification(
         target_user["email"],
-        f"Holiday Credits Updated for {credit.year}",
+        f"{category_name} Credits Updated for {credit.year}",
         f"""
-        <h2>Holiday Credits Updated</h2>
-        <p>Your holiday credits for {credit.year} have been updated.</p>
+        <h2>{category_name} Credits Updated</h2>
+        <p>Your {category_name} credits for {credit.year} have been updated.</p>
         <p><strong>Total Days:</strong> {credit.total_days}</p>
         """
     )
