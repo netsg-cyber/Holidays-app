@@ -508,19 +508,23 @@ async def approve_request(request_id: str, hr_comment: Optional[str] = None, use
     if req["status"] != "pending":
         raise HTTPException(status_code=400, detail="Request already processed")
     
-    # Update credit
+    # Update credit for the specific category
     current_year = datetime.now().year
+    category = req.get("category", "paid_holiday")
     await db.holiday_credits.update_one(
-        {"user_id": req["user_id"], "year": current_year},
+        {"user_id": req["user_id"], "year": current_year, "category": category},
         {
             "$inc": {"used_days": req["days_count"], "remaining_days": -req["days_count"]},
             "$set": {"updated_at": datetime.now(timezone.utc).isoformat()}
         }
     )
     
+    # Get category name for calendar
+    category_name = next((c["name"] for c in HOLIDAY_CATEGORIES if c["id"] == category), category)
+    
     # Create calendar event
     event_id = await create_calendar_event(
-        f"Holiday: {req['user_name']}",
+        f"{category_name}: {req['user_name']}",
         req["start_date"],
         req["end_date"],
         req.get("reason", "")
@@ -541,10 +545,11 @@ async def approve_request(request_id: str, hr_comment: Optional[str] = None, use
     # Notify employee
     await send_email_notification(
         req["user_email"],
-        "Your Holiday Request has been Approved",
+        f"Your {category_name} Request has been Approved",
         f"""
-        <h2>Holiday Request Approved</h2>
-        <p>Your holiday request has been approved!</p>
+        <h2>{category_name} Request Approved</h2>
+        <p>Your request has been approved!</p>
+        <p><strong>Category:</strong> {category_name}</p>
         <p><strong>Dates:</strong> {req['start_date']} to {req['end_date']}</p>
         <p><strong>Days:</strong> {req['days_count']}</p>
         {f'<p><strong>HR Comment:</strong> {hr_comment}</p>' if hr_comment else ''}
