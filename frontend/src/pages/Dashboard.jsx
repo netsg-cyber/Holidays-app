@@ -60,7 +60,8 @@ const categoryColors = {
   unpaid_leave: "bg-slate-100 text-slate-700 border-slate-200",
   sick_leave: "bg-red-100 text-red-700 border-red-200",
   parental_leave: "bg-purple-100 text-purple-700 border-purple-200",
-  maternity_leave: "bg-pink-100 text-pink-700 border-pink-200"
+  maternity_leave: "bg-pink-100 text-pink-700 border-pink-200",
+  compensatory_rest: "bg-teal-100 text-teal-700 border-teal-200"
 };
 
 const Dashboard = () => {
