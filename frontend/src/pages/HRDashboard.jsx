@@ -56,12 +56,6 @@ const categoryColors = {
   maternity_leave: "bg-pink-100 text-pink-700",
   compensatory_rest: "bg-teal-100 text-teal-700"
 };
-  paid_holiday: "bg-blue-100 text-blue-700",
-  unpaid_leave: "bg-slate-100 text-slate-700",
-  sick_leave: "bg-red-100 text-red-700",
-  parental_leave: "bg-purple-100 text-purple-700",
-  maternity_leave: "bg-pink-100 text-pink-700"
-};
 
 const HRDashboard = () => {
   const { user } = useContext(AuthContext);
