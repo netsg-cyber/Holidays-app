@@ -12,7 +12,8 @@ import {
   Heart,
   Baby,
   Thermometer,
-  MinusCircle
+  MinusCircle,
+  Clock
 } from "lucide-react";
 import { Button } from "../components/ui/button";
 import { Card, CardContent, CardHeader, CardTitle } from "../components/ui/card";
@@ -36,7 +37,8 @@ const categoryIcons = {
   unpaid_leave: MinusCircle,
   sick_leave: Thermometer,
   parental_leave: Heart,
-  maternity_leave: Baby
+  maternity_leave: Baby,
+  compensatory_rest: Clock
 };
 
 const categoryColors = {
@@ -44,7 +46,8 @@ const categoryColors = {
   unpaid_leave: "bg-slate-200 text-slate-800",
   sick_leave: "bg-red-200 text-red-800",
   parental_leave: "bg-purple-200 text-purple-800",
-  maternity_leave: "bg-pink-200 text-pink-800"
+  maternity_leave: "bg-pink-200 text-pink-800",
+  compensatory_rest: "bg-teal-200 text-teal-800"
 };
 
 const Calendar = () => {
