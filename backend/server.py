@@ -123,6 +123,7 @@ class HolidayCredit(BaseModel):
     total_days: float = 35.0
     used_days: float = 0.0
     remaining_days: float = 35.0
+    expires_at: Optional[str] = None  # ISO date string for expiration
     created_at: datetime = Field(default_factory=lambda: datetime.now(timezone.utc))
     updated_at: datetime = Field(default_factory=lambda: datetime.now(timezone.utc))
 
@@ -131,6 +132,7 @@ class HolidayCreditCreate(BaseModel):
     year: int
     category: str = "paid_holiday"
     total_days: float = 35.0
+    expires_at: Optional[str] = None  # ISO date string for expiration
 
 class PublicHoliday(BaseModel):
     model_config = ConfigDict(extra="ignore")
