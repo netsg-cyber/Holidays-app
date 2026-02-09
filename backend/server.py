@@ -415,17 +415,33 @@ async def logout(request: Request, response: Response):
 
 # ==================== HOLIDAY REQUEST ROUTES ====================
 
+@api_router.get("/categories")
+async def get_holiday_categories():
+    """Get all holiday categories"""
+    return HOLIDAY_CATEGORIES
+
 @api_router.post("/requests", response_model=dict, status_code=201)
 async def create_holiday_request(req: HolidayRequestCreate, user: User = Depends(get_current_user)):
     """Create a new holiday request"""
-    # Check if user has enough credits
+    # Validate category
+    valid_categories = [c["id"] for c in HOLIDAY_CATEGORIES]
+    if req.category not in valid_categories:
+        raise HTTPException(status_code=400, detail="Invalid holiday category")
+    
+    # Check if user has enough credits for this category
     current_year = datetime.now().year
     credit = await db.holiday_credits.find_one(
-        {"user_id": user.user_id, "year": current_year}, {"_id": 0}
+        {"user_id": user.user_id, "year": current_year, "category": req.category}, {"_id": 0}
     )
     
-    if not credit or credit["remaining_days"] < req.days_count:
-        raise HTTPException(status_code=400, detail="Insufficient holiday credits")
+    # Get category name for display
+    category_name = next((c["name"] for c in HOLIDAY_CATEGORIES if c["id"] == req.category), req.category)
+    
+    if not credit:
+        raise HTTPException(status_code=400, detail=f"No credits assigned for {category_name}")
+    
+    if credit["remaining_days"] < req.days_count:
+        raise HTTPException(status_code=400, detail=f"Insufficient {category_name} credits. Available: {credit['remaining_days']} days")
     
     # Create request
     request_doc = {
@@ -433,6 +449,7 @@ async def create_holiday_request(req: HolidayRequestCreate, user: User = Depends
         "user_id": user.user_id,
         "user_name": user.name,
         "user_email": user.email,
+        "category": req.category,
         "start_date": req.start_date,
         "end_date": req.end_date,
         "days_count": req.days_count,
@@ -447,10 +464,11 @@ async def create_holiday_request(req: HolidayRequestCreate, user: User = Depends
     for hr in hr_users:
         await send_email_notification(
             hr["email"],
-            f"New Holiday Request from {user.name}",
+            f"New {category_name} Request from {user.name}",
             f"""
             <h2>New Holiday Request</h2>
             <p><strong>Employee:</strong> {user.name}</p>
+            <p><strong>Category:</strong> {category_name}</p>
             <p><strong>Dates:</strong> {req.start_date} to {req.end_date}</p>
             <p><strong>Days:</strong> {req.days_count}</p>
             <p><strong>Reason:</strong> {req.reason}</p>
