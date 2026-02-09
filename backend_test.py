@@ -449,6 +449,7 @@ print('Deleted holidays: ' + result5.deletedCount);
             
         # Test authenticated endpoints
         self.test_auth_endpoints()
+        self.test_category_specific_features()  # Add category tests
         self.test_credits_endpoints()
         self.test_requests_endpoints()
         self.test_public_holidays_endpoints()
