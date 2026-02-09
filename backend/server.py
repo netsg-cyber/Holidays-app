@@ -50,6 +50,24 @@ logger = logging.getLogger(__name__)
 
 # ==================== MODELS ====================
 
+# Holiday Categories
+HOLIDAY_CATEGORIES = [
+    {"id": "paid_holiday", "name": "Paid Holidays", "description": "Regular paid time off"},
+    {"id": "unpaid_leave", "name": "Unpaid Leave", "description": "Leave without pay"},
+    {"id": "sick_leave", "name": "Sick Leave (No Justification)", "description": "Sick leave without medical certificate"},
+    {"id": "parental_leave", "name": "Parental Leave", "description": "Leave for parental duties"},
+    {"id": "maternity_leave", "name": "Maternity Leave", "description": "Leave for maternity/paternity"}
+]
+
+# Default credits per category
+DEFAULT_CREDITS = {
+    "paid_holiday": 35.0,
+    "unpaid_leave": 0.0,  # Usually unlimited but tracked
+    "sick_leave": 5.0,
+    "parental_leave": 10.0,
+    "maternity_leave": 90.0
+}
+
 class User(BaseModel):
     model_config = ConfigDict(extra="ignore")
     user_id: str
@@ -73,6 +91,7 @@ class HolidayRequest(BaseModel):
     user_id: str
     user_name: str
     user_email: str
+    category: str = "paid_holiday"  # Holiday category
     start_date: str  # ISO date string
     end_date: str
     days_count: float
@@ -85,6 +104,7 @@ class HolidayRequest(BaseModel):
     created_at: datetime = Field(default_factory=lambda: datetime.now(timezone.utc))
 
 class HolidayRequestCreate(BaseModel):
+    category: str = "paid_holiday"
     start_date: str
     end_date: str
     days_count: float
@@ -97,6 +117,7 @@ class HolidayCredit(BaseModel):
     user_email: str
     user_name: str
     year: int
+    category: str = "paid_holiday"
     total_days: float = 35.0
     used_days: float = 0.0
     remaining_days: float = 35.0
@@ -106,6 +127,7 @@ class HolidayCredit(BaseModel):
 class HolidayCreditCreate(BaseModel):
     user_id: str
     year: int
+    category: str = "paid_holiday"
     total_days: float = 35.0
 
 class PublicHoliday(BaseModel):
