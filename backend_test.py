@@ -1,7 +1,7 @@
 #!/usr/bin/env python3
 """
-Holiday Request Management API Testing Suite
-Tests all backend endpoints with proper authentication
+Holiday Request Management API Testing Suite - Category Feature Testing
+Tests all backend endpoints with focus on 5 holiday categories
 """
 
 import requests
@@ -11,7 +11,7 @@ from datetime import datetime, timedelta
 import subprocess
 import time
 
-class HolidayAPITester:
+class HolidayCategoryTester:
     def __init__(self, base_url="https://vacation-hub-62.preview.emergentagent.com"):
         self.base_url = base_url
         self.api_url = f"{base_url}/api"
@@ -20,6 +20,7 @@ class HolidayAPITester:
         self.tests_run = 0
         self.tests_passed = 0
         self.failed_tests = []
+        self.expected_categories = ['paid_holiday', 'unpaid_leave', 'sick_leave', 'parental_leave', 'maternity_leave']
         
     def log(self, message):
         """Log with timestamp"""
