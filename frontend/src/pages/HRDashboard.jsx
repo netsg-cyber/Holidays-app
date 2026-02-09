@@ -9,7 +9,12 @@ import {
   User,
   Filter,
   MessageSquare,
-  Search
+  Search,
+  Briefcase,
+  Heart,
+  Baby,
+  Thermometer,
+  DollarOff
 } from "lucide-react";
 import { Card, CardContent, CardHeader, CardTitle } from "../components/ui/card";
 import { Button } from "../components/ui/button";
@@ -31,11 +36,31 @@ import {
 } from "../components/ui/dialog";
 import { Label } from "../components/ui/label";
 
+// Category icons mapping
+const categoryIcons = {
+  paid_holiday: Briefcase,
+  unpaid_leave: DollarOff,
+  sick_leave: Thermometer,
+  parental_leave: Heart,
+  maternity_leave: Baby
+};
+
+// Category colors mapping
+const categoryColors = {
+  paid_holiday: "bg-blue-100 text-blue-700",
+  unpaid_leave: "bg-slate-100 text-slate-700",
+  sick_leave: "bg-red-100 text-red-700",
+  parental_leave: "bg-purple-100 text-purple-700",
+  maternity_leave: "bg-pink-100 text-pink-700"
+};
+
 const HRDashboard = () => {
   const { user } = useContext(AuthContext);
   const [requests, setRequests] = useState([]);
+  const [categories, setCategories] = useState([]);
   const [loading, setLoading] = useState(true);
-  const [filter, setFilter] = useState("pending");
+  const [statusFilter, setStatusFilter] = useState("pending");
+  const [categoryFilter, setCategoryFilter] = useState("all");
   const [search, setSearch] = useState("");
   const [selectedRequest, setSelectedRequest] = useState(null);
   const [hrComment, setHrComment] = useState("");
@@ -43,13 +68,17 @@ const HRDashboard = () => {
 
   useEffect(() => {
     if (user?.role !== "hr") return;
-    fetchRequests();
+    fetchData();
   }, [user]);
 
-  const fetchRequests = async () => {
+  const fetchData = async () => {
     try {
-      const response = await axios.get(`${API}/requests/all`);
-      setRequests(response.data);
+      const [requestsRes, categoriesRes] = await Promise.all([
+        axios.get(`${API}/requests/all`),
+        axios.get(`${API}/categories`)
+      ]);
+      setRequests(requestsRes.data);
+      setCategories(categoriesRes.data);
     } catch (error) {
       console.error("Error fetching requests:", error);
       toast.error("Failed to load requests");
@@ -68,7 +97,7 @@ const HRDashboard = () => {
       toast.success("Request approved successfully");
       setSelectedRequest(null);
       setHrComment("");
-      fetchRequests();
+      fetchData();
     } catch (error) {
       console.error("Error approving request:", error);
       toast.error(error.response?.data?.detail || "Failed to approve request");
@@ -87,7 +116,7 @@ const HRDashboard = () => {
       toast.success("Request rejected");
       setSelectedRequest(null);
       setHrComment("");
-      fetchRequests();
+      fetchData();
     } catch (error) {
       console.error("Error rejecting request:", error);
       toast.error(error.response?.data?.detail || "Failed to reject request");
@@ -96,12 +125,17 @@ const HRDashboard = () => {
     }
   };
 
+  const getCategoryName = (categoryId) => {
+    return categories.find(c => c.id === categoryId)?.name || categoryId;
+  };
+
   const filteredRequests = requests.filter(req => {
-    const matchesFilter = filter === "all" || req.status === filter;
+    const matchesStatus = statusFilter === "all" || req.status === statusFilter;
+    const matchesCategory = categoryFilter === "all" || req.category === categoryFilter;
     const matchesSearch = search === "" || 
       req.user_name.toLowerCase().includes(search.toLowerCase()) ||
       req.user_email.toLowerCase().includes(search.toLowerCase());
-    return matchesFilter && matchesSearch;
+    return matchesStatus && matchesCategory && matchesSearch;
   });
 
   const stats = {
@@ -135,31 +169,31 @@ const HRDashboard = () => {
           HR Dashboard
         </h1>
         <p className="text-slate-600 mt-1">
-          Manage all holiday requests from employees
+          Manage all leave requests from employees
         </p>
       </div>
 
       {/* Stats */}
       <div className="grid grid-cols-2 md:grid-cols-4 gap-4 mb-8">
-        <Card className="bento-card cursor-pointer hover:border-slate-300" onClick={() => setFilter("all")}>
+        <Card className="bento-card cursor-pointer hover:border-slate-300" onClick={() => setStatusFilter("all")}>
           <CardContent className="p-4">
             <p className="text-sm text-slate-600">Total</p>
             <p className="text-2xl font-bold text-slate-900">{stats.total}</p>
           </CardContent>
         </Card>
-        <Card className="bento-card cursor-pointer hover:border-amber-300" onClick={() => setFilter("pending")}>
+        <Card className="bento-card cursor-pointer hover:border-amber-300" onClick={() => setStatusFilter("pending")}>
           <CardContent className="p-4">
             <p className="text-sm text-slate-600">Pending</p>
             <p className="text-2xl font-bold text-amber-600">{stats.pending}</p>
           </CardContent>
         </Card>
-        <Card className="bento-card cursor-pointer hover:border-emerald-300" onClick={() => setFilter("approved")}>
+        <Card className="bento-card cursor-pointer hover:border-emerald-300" onClick={() => setStatusFilter("approved")}>
           <CardContent className="p-4">
             <p className="text-sm text-slate-600">Approved</p>
             <p className="text-2xl font-bold text-emerald-600">{stats.approved}</p>
           </CardContent>
         </Card>
-        <Card className="bento-card cursor-pointer hover:border-red-300" onClick={() => setFilter("rejected")}>
+        <Card className="bento-card cursor-pointer hover:border-red-300" onClick={() => setStatusFilter("rejected")}>
           <CardContent className="p-4">
             <p className="text-sm text-slate-600">Rejected</p>
             <p className="text-2xl font-bold text-red-600">{stats.rejected}</p>
@@ -179,15 +213,26 @@ const HRDashboard = () => {
             data-testid="search-input"
           />
         </div>
-        <Select value={filter} onValueChange={setFilter}>
-          <SelectTrigger className="w-40" data-testid="status-filter">
-            <SelectValue placeholder="Filter" />
+        <Select value={statusFilter} onValueChange={setStatusFilter}>
+          <SelectTrigger className="w-36" data-testid="status-filter">
+            <SelectValue placeholder="Status" />
           </SelectTrigger>
           <SelectContent>
             <SelectItem value="all">All</SelectItem>
             <SelectItem value="pending">Pending</SelectItem>
             <SelectItem value="approved">Approved</SelectItem>
             <SelectItem value="rejected">Rejected</SelectItem>
+          </SelectContent>
+        </Select>
+        <Select value={categoryFilter} onValueChange={setCategoryFilter}>
+          <SelectTrigger className="w-44" data-testid="category-filter">
+            <SelectValue placeholder="Category" />
+          </SelectTrigger>
+          <SelectContent>
+            <SelectItem value="all">All Categories</SelectItem>
+            {categories.map(cat => (
+              <SelectItem key={cat.id} value={cat.id}>{cat.name}</SelectItem>
+            ))}
           </SelectContent>
         </Select>
       </div>
@@ -206,6 +251,7 @@ const HRDashboard = () => {
                 <thead>
                   <tr>
                     <th>Employee</th>
+                    <th>Category</th>
                     <th>Dates</th>
                     <th>Days</th>
                     <th>Reason</th>
@@ -214,52 +260,65 @@ const HRDashboard = () => {
                   </tr>
                 </thead>
                 <tbody>
-                  {filteredRequests.map((req, idx) => (
-                    <tr 
-                      key={req.request_id}
-                      className="animate-slide-in"
-                      style={{ animationDelay: `${idx * 30}ms` }}
-                      data-testid={`hr-request-row-${req.request_id}`}
-                    >
-                      <td>
-                        <div>
-                          <p className="font-medium text-slate-900">{req.user_name}</p>
-                          <p className="text-sm text-slate-500">{req.user_email}</p>
-                        </div>
-                      </td>
-                      <td className="mono text-sm">
-                        {req.start_date} → {req.end_date}
-                      </td>
-                      <td className="font-medium">{req.days_count}</td>
-                      <td className="max-w-xs truncate" title={req.reason}>
-                        {req.reason}
-                      </td>
-                      <td>
-                        <span className={`badge badge-${req.status}`}>
-                          {req.status.charAt(0).toUpperCase() + req.status.slice(1)}
-                        </span>
-                      </td>
-                      <td>
-                        {req.status === "pending" ? (
-                          <Button
-                            size="sm"
-                            variant="outline"
-                            onClick={() => {
-                              setSelectedRequest(req);
-                              setHrComment("");
-                            }}
-                            data-testid={`review-btn-${req.request_id}`}
-                          >
-                            Review
-                          </Button>
-                        ) : (
-                          <span className="text-sm text-slate-500">
-                            {req.processed_at ? new Date(req.processed_at).toLocaleDateString() : "-"}
+                  {filteredRequests.map((req, idx) => {
+                    const Icon = categoryIcons[req.category] || Briefcase;
+                    const colorClass = categoryColors[req.category] || "bg-slate-100 text-slate-700";
+                    
+                    return (
+                      <tr 
+                        key={req.request_id}
+                        className="animate-slide-in"
+                        style={{ animationDelay: `${idx * 30}ms` }}
+                        data-testid={`hr-request-row-${req.request_id}`}
+                      >
+                        <td>
+                          <div>
+                            <p className="font-medium text-slate-900">{req.user_name}</p>
+                            <p className="text-sm text-slate-500">{req.user_email}</p>
+                          </div>
+                        </td>
+                        <td>
+                          <div className="flex items-center gap-2">
+                            <div className={`p-1.5 rounded ${colorClass}`}>
+                              <Icon size={14} />
+                            </div>
+                            <span className="text-sm">{getCategoryName(req.category)}</span>
+                          </div>
+                        </td>
+                        <td className="mono text-sm">
+                          {req.start_date} → {req.end_date}
+                        </td>
+                        <td className="font-medium">{req.days_count}</td>
+                        <td className="max-w-xs truncate" title={req.reason}>
+                          {req.reason}
+                        </td>
+                        <td>
+                          <span className={`badge badge-${req.status}`}>
+                            {req.status.charAt(0).toUpperCase() + req.status.slice(1)}
                           </span>
-                        )}
-                      </td>
-                    </tr>
-                  ))}
+                        </td>
+                        <td>
+                          {req.status === "pending" ? (
+                            <Button
+                              size="sm"
+                              variant="outline"
+                              onClick={() => {
+                                setSelectedRequest(req);
+                                setHrComment("");
+                              }}
+                              data-testid={`review-btn-${req.request_id}`}
+                            >
+                              Review
+                            </Button>
+                          ) : (
+                            <span className="text-sm text-slate-500">
+                              {req.processed_at ? new Date(req.processed_at).toLocaleDateString() : "-"}
+                            </span>
+                          )}
+                        </td>
+                      </tr>
+                    );
+                  })}
                 </tbody>
               </table>
             </div>
@@ -278,6 +337,21 @@ const HRDashboard = () => {
               <div className="p-4 bg-slate-50 rounded-lg">
                 <p className="font-medium text-slate-900">{selectedRequest.user_name}</p>
                 <p className="text-sm text-slate-600">{selectedRequest.user_email}</p>
+              </div>
+              
+              <div className="flex items-center gap-3 p-3 bg-slate-50 rounded-lg">
+                {(() => {
+                  const Icon = categoryIcons[selectedRequest.category] || Briefcase;
+                  const colorClass = categoryColors[selectedRequest.category] || "bg-slate-100 text-slate-700";
+                  return (
+                    <>
+                      <div className={`p-2 rounded ${colorClass}`}>
+                        <Icon size={18} />
+                      </div>
+                      <span className="font-medium">{getCategoryName(selectedRequest.category)}</span>
+                    </>
+                  );
+                })()}
               </div>
               
               <div className="grid grid-cols-2 gap-4 text-sm">

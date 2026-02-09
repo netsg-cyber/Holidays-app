@@ -8,7 +8,12 @@ import {
   XCircle,
   Calendar,
   MessageSquare,
-  Filter
+  Filter,
+  Briefcase,
+  Heart,
+  Baby,
+  Thermometer,
+  DollarOff
 } from "lucide-react";
 import { Card, CardContent, CardHeader, CardTitle } from "../components/ui/card";
 import { Button } from "../components/ui/button";
@@ -20,20 +25,44 @@ import {
   SelectValue,
 } from "../components/ui/select";
 
+// Category icons mapping
+const categoryIcons = {
+  paid_holiday: Briefcase,
+  unpaid_leave: DollarOff,
+  sick_leave: Thermometer,
+  parental_leave: Heart,
+  maternity_leave: Baby
+};
+
+// Category colors mapping
+const categoryColors = {
+  paid_holiday: "bg-blue-100 text-blue-700",
+  unpaid_leave: "bg-slate-100 text-slate-700",
+  sick_leave: "bg-red-100 text-red-700",
+  parental_leave: "bg-purple-100 text-purple-700",
+  maternity_leave: "bg-pink-100 text-pink-700"
+};
+
 const MyRequests = () => {
   const { user } = useContext(AuthContext);
   const [requests, setRequests] = useState([]);
+  const [categories, setCategories] = useState([]);
   const [loading, setLoading] = useState(true);
-  const [filter, setFilter] = useState("all");
+  const [statusFilter, setStatusFilter] = useState("all");
+  const [categoryFilter, setCategoryFilter] = useState("all");
 
   useEffect(() => {
-    fetchRequests();
+    fetchData();
   }, []);
 
-  const fetchRequests = async () => {
+  const fetchData = async () => {
     try {
-      const response = await axios.get(`${API}/requests/my`);
-      setRequests(response.data);
+      const [requestsRes, categoriesRes] = await Promise.all([
+        axios.get(`${API}/requests/my`),
+        axios.get(`${API}/categories`)
+      ]);
+      setRequests(requestsRes.data);
+      setCategories(categoriesRes.data);
     } catch (error) {
       console.error("Error fetching requests:", error);
       toast.error("Failed to load requests");
@@ -43,8 +72,9 @@ const MyRequests = () => {
   };
 
   const filteredRequests = requests.filter(req => {
-    if (filter === "all") return true;
-    return req.status === filter;
+    const matchesStatus = statusFilter === "all" || req.status === statusFilter;
+    const matchesCategory = categoryFilter === "all" || req.category === categoryFilter;
+    return matchesStatus && matchesCategory;
   });
 
   const getStatusIcon = (status) => {
@@ -56,6 +86,10 @@ const MyRequests = () => {
       default:
         return <Clock className="w-5 h-5 text-amber-500" />;
     }
+  };
+
+  const getCategoryName = (categoryId) => {
+    return categories.find(c => c.id === categoryId)?.name || categoryId;
   };
 
   const stats = {
@@ -81,7 +115,7 @@ const MyRequests = () => {
           My Requests
         </h1>
         <p className="text-slate-600 mt-1">
-          View and track all your holiday requests
+          View and track all your leave requests
         </p>
       </div>
 
@@ -113,18 +147,32 @@ const MyRequests = () => {
         </Card>
       </div>
 
-      {/* Filter */}
-      <div className="flex items-center gap-4 mb-6">
-        <Filter size={20} className="text-slate-500" />
-        <Select value={filter} onValueChange={setFilter}>
-          <SelectTrigger className="w-40" data-testid="filter-select">
-            <SelectValue placeholder="Filter by status" />
+      {/* Filters */}
+      <div className="flex flex-wrap items-center gap-4 mb-6">
+        <div className="flex items-center gap-2">
+          <Filter size={20} className="text-slate-500" />
+          <span className="text-sm text-slate-600">Filters:</span>
+        </div>
+        <Select value={statusFilter} onValueChange={setStatusFilter}>
+          <SelectTrigger className="w-36" data-testid="status-filter">
+            <SelectValue placeholder="Status" />
           </SelectTrigger>
           <SelectContent>
-            <SelectItem value="all">All Requests</SelectItem>
+            <SelectItem value="all">All Status</SelectItem>
             <SelectItem value="pending">Pending</SelectItem>
             <SelectItem value="approved">Approved</SelectItem>
             <SelectItem value="rejected">Rejected</SelectItem>
+          </SelectContent>
+        </Select>
+        <Select value={categoryFilter} onValueChange={setCategoryFilter}>
+          <SelectTrigger className="w-44" data-testid="category-filter">
+            <SelectValue placeholder="Category" />
+          </SelectTrigger>
+          <SelectContent>
+            <SelectItem value="all">All Categories</SelectItem>
+            {categories.map(cat => (
+              <SelectItem key={cat.id} value={cat.id}>{cat.name}</SelectItem>
+            ))}
           </SelectContent>
         </Select>
       </div>
@@ -137,57 +185,67 @@ const MyRequests = () => {
               <Calendar className="empty-state-icon" />
               <p className="text-slate-600 font-medium">No requests found</p>
               <p className="text-sm text-slate-500 mt-1">
-                {filter === "all"
-                  ? "You haven't submitted any holiday requests yet"
-                  : `No ${filter} requests`}
+                {statusFilter === "all" && categoryFilter === "all"
+                  ? "You haven't submitted any leave requests yet"
+                  : "No requests match the selected filters"}
               </p>
             </div>
           ) : (
             <div className="divide-y divide-slate-100">
-              {filteredRequests.map((req, idx) => (
-                <div
-                  key={req.request_id}
-                  className={`p-6 hover:bg-slate-50 transition-colors animate-slide-in request-card request-card-${req.status}`}
-                  style={{ animationDelay: `${idx * 50}ms` }}
-                  data-testid={`request-item-${req.request_id}`}
-                >
-                  <div className="flex items-start justify-between gap-4">
-                    <div className="flex items-start gap-4">
-                      {getStatusIcon(req.status)}
-                      <div>
-                        <div className="flex items-center gap-3 mb-1">
-                          <span className={`badge badge-${req.status}`}>
-                            {req.status.charAt(0).toUpperCase() + req.status.slice(1)}
-                          </span>
-                          <span className="text-sm text-slate-500 mono">
-                            {req.days_count} day(s)
-                          </span>
+              {filteredRequests.map((req, idx) => {
+                const Icon = categoryIcons[req.category] || Briefcase;
+                const colorClass = categoryColors[req.category] || "bg-slate-100 text-slate-700";
+                
+                return (
+                  <div
+                    key={req.request_id}
+                    className={`p-6 hover:bg-slate-50 transition-colors animate-slide-in request-card request-card-${req.status}`}
+                    style={{ animationDelay: `${idx * 50}ms` }}
+                    data-testid={`request-item-${req.request_id}`}
+                  >
+                    <div className="flex items-start justify-between gap-4">
+                      <div className="flex items-start gap-4">
+                        <div className={`p-2 rounded-lg ${colorClass}`}>
+                          <Icon size={20} />
                         </div>
-                        <p className="font-medium text-slate-900 mb-1">
-                          {req.start_date} → {req.end_date}
-                        </p>
-                        <p className="text-sm text-slate-600">{req.reason}</p>
-                        
-                        {req.hr_comment && (
-                          <div className="mt-3 p-3 bg-slate-50 rounded-lg">
-                            <div className="flex items-center gap-2 text-sm text-slate-600">
-                              <MessageSquare size={14} />
-                              <span className="font-medium">HR Comment:</span>
-                            </div>
-                            <p className="text-sm text-slate-700 mt-1">{req.hr_comment}</p>
+                        <div>
+                          <div className="flex items-center gap-3 mb-1">
+                            <span className={`badge badge-${req.status}`}>
+                              {req.status.charAt(0).toUpperCase() + req.status.slice(1)}
+                            </span>
+                            <span className="text-sm font-medium text-slate-600">
+                              {getCategoryName(req.category)}
+                            </span>
+                            <span className="text-sm text-slate-500 mono">
+                              {req.days_count} day(s)
+                            </span>
                           </div>
-                        )}
+                          <p className="font-medium text-slate-900 mb-1">
+                            {req.start_date} → {req.end_date}
+                          </p>
+                          <p className="text-sm text-slate-600">{req.reason}</p>
+                          
+                          {req.hr_comment && (
+                            <div className="mt-3 p-3 bg-slate-50 rounded-lg">
+                              <div className="flex items-center gap-2 text-sm text-slate-600">
+                                <MessageSquare size={14} />
+                                <span className="font-medium">HR Comment:</span>
+                              </div>
+                              <p className="text-sm text-slate-700 mt-1">{req.hr_comment}</p>
+                            </div>
+                          )}
+                        </div>
+                      </div>
+                      <div className="text-right text-sm text-slate-500">
+                        <p>Submitted</p>
+                        <p className="mono">
+                          {new Date(req.created_at).toLocaleDateString()}
+                        </p>
                       </div>
                     </div>
-                    <div className="text-right text-sm text-slate-500">
-                      <p>Submitted</p>
-                      <p className="mono">
-                        {new Date(req.created_at).toLocaleDateString()}
-                      </p>
-                    </div>
                   </div>
-                </div>
-              ))}
+                );
+              })}
             </div>
           )}
         </CardContent>

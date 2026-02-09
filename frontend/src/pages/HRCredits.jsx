@@ -7,7 +7,12 @@ import {
   User,
   Plus,
   Search,
-  Edit
+  Edit,
+  Briefcase,
+  Heart,
+  Baby,
+  Thermometer,
+  DollarOff
 } from "lucide-react";
 import { Card, CardContent, CardHeader, CardTitle } from "../components/ui/card";
 import { Button } from "../components/ui/button";
@@ -27,19 +32,42 @@ import {
   SelectValue,
 } from "../components/ui/select";
 import { Label } from "../components/ui/label";
+import { Tabs, TabsContent, TabsList, TabsTrigger } from "../components/ui/tabs";
+
+// Category icons mapping
+const categoryIcons = {
+  paid_holiday: Briefcase,
+  unpaid_leave: DollarOff,
+  sick_leave: Thermometer,
+  parental_leave: Heart,
+  maternity_leave: Baby
+};
+
+// Category colors mapping
+const categoryColors = {
+  paid_holiday: "bg-blue-100 text-blue-700 border-blue-200",
+  unpaid_leave: "bg-slate-100 text-slate-700 border-slate-200",
+  sick_leave: "bg-red-100 text-red-700 border-red-200",
+  parental_leave: "bg-purple-100 text-purple-700 border-purple-200",
+  maternity_leave: "bg-pink-100 text-pink-700 border-pink-200"
+};
 
 const HRCredits = () => {
   const { user } = useContext(AuthContext);
   const [credits, setCredits] = useState([]);
   const [users, setUsers] = useState([]);
+  const [categories, setCategories] = useState([]);
   const [loading, setLoading] = useState(true);
   const [search, setSearch] = useState("");
   const [selectedYear, setSelectedYear] = useState(new Date().getFullYear().toString());
+  const [selectedCategory, setSelectedCategory] = useState("all");
   const [isDialogOpen, setIsDialogOpen] = useState(false);
   const [editingCredit, setEditingCredit] = useState(null);
   
   // Form state
-  const [selectedUser, setSelectedUser] = useState("");
+  const [formUser, setFormUser] = useState("");
+  const [formCategory, setFormCategory] = useState("paid_holiday");
+  const [formYear, setFormYear] = useState(new Date().getFullYear().toString());
   const [totalDays, setTotalDays] = useState("35");
   const [saving, setSaving] = useState(false);
 
@@ -50,12 +78,14 @@ const HRCredits = () => {
 
   const fetchData = async () => {
     try {
-      const [creditsRes, usersRes] = await Promise.all([
+      const [creditsRes, usersRes, categoriesRes] = await Promise.all([
         axios.get(`${API}/credits/all`),
-        axios.get(`${API}/users`)
+        axios.get(`${API}/users`),
+        axios.get(`${API}/categories`)
       ]);
       setCredits(creditsRes.data);
       setUsers(usersRes.data);
+      setCategories(categoriesRes.data);
     } catch (error) {
       console.error("Error fetching data:", error);
       toast.error("Failed to load data");
@@ -65,7 +95,7 @@ const HRCredits = () => {
   };
 
   const handleSave = async () => {
-    if (!selectedUser || !totalDays) {
+    if (!formUser || !totalDays || !formCategory) {
       toast.error("Please fill all fields");
       return;
     }
@@ -73,15 +103,14 @@ const HRCredits = () => {
     setSaving(true);
     try {
       await axios.post(`${API}/credits`, {
-        user_id: selectedUser,
-        year: parseInt(selectedYear),
+        user_id: formUser,
+        year: parseInt(formYear),
+        category: formCategory,
         total_days: parseFloat(totalDays)
       });
       toast.success("Credits updated successfully");
       setIsDialogOpen(false);
-      setSelectedUser("");
-      setTotalDays("35");
-      setEditingCredit(null);
+      resetForm();
       fetchData();
     } catch (error) {
       console.error("Error saving credits:", error);
@@ -91,21 +120,51 @@ const HRCredits = () => {
     }
   };
 
+  const resetForm = () => {
+    setFormUser("");
+    setFormCategory("paid_holiday");
+    setFormYear(new Date().getFullYear().toString());
+    setTotalDays("35");
+    setEditingCredit(null);
+  };
+
   const openEditDialog = (credit) => {
     setEditingCredit(credit);
-    setSelectedUser(credit.user_id);
+    setFormUser(credit.user_id);
+    setFormCategory(credit.category || "paid_holiday");
+    setFormYear(credit.year.toString());
     setTotalDays(credit.total_days.toString());
-    setSelectedYear(credit.year.toString());
     setIsDialogOpen(true);
   };
 
+  const openNewDialog = () => {
+    resetForm();
+    setIsDialogOpen(true);
+  };
+
+  // Group credits by user for the selected year
   const filteredCredits = credits.filter(c => {
     const matchesYear = c.year.toString() === selectedYear;
+    const matchesCategory = selectedCategory === "all" || c.category === selectedCategory;
     const matchesSearch = search === "" || 
       c.user_name?.toLowerCase().includes(search.toLowerCase()) ||
       c.user_email?.toLowerCase().includes(search.toLowerCase());
-    return matchesYear && matchesSearch;
+    return matchesYear && matchesCategory && matchesSearch;
   });
+
+  // Group by user
+  const groupedByUser = filteredCredits.reduce((acc, credit) => {
+    if (!acc[credit.user_id]) {
+      acc[credit.user_id] = {
+        user_id: credit.user_id,
+        user_name: credit.user_name,
+        user_email: credit.user_email,
+        credits: []
+      };
+    }
+    acc[credit.user_id].credits.push(credit);
+    return acc;
+  }, {});
 
   const years = [
     (new Date().getFullYear() - 1).toString(),
@@ -138,22 +197,45 @@ const HRCredits = () => {
             Holiday Credits
           </h1>
           <p className="text-slate-600 mt-1">
-            Manage holiday allowances for all employees
+            Manage leave allowances for all employees by category
           </p>
         </div>
         <Button
           className="btn-primary flex items-center gap-2"
-          onClick={() => {
-            setEditingCredit(null);
-            setSelectedUser("");
-            setTotalDays("35");
-            setIsDialogOpen(true);
-          }}
+          onClick={openNewDialog}
           data-testid="add-credit-btn"
         >
           <Plus size={20} />
           Assign Credits
         </Button>
+      </div>
+
+      {/* Category Legend */}
+      <div className="flex flex-wrap gap-3 mb-6">
+        {categories.map(cat => {
+          const Icon = categoryIcons[cat.id] || Briefcase;
+          const colorClass = categoryColors[cat.id] || "bg-slate-100 text-slate-700";
+          return (
+            <div 
+              key={cat.id} 
+              className={`flex items-center gap-2 px-3 py-1.5 rounded-full border ${colorClass} text-sm cursor-pointer ${selectedCategory === cat.id ? 'ring-2 ring-offset-1 ring-blue-500' : ''}`}
+              onClick={() => setSelectedCategory(selectedCategory === cat.id ? "all" : cat.id)}
+            >
+              <Icon size={14} />
+              <span>{cat.name}</span>
+            </div>
+          );
+        })}
+        {selectedCategory !== "all" && (
+          <Button 
+            variant="ghost" 
+            size="sm" 
+            onClick={() => setSelectedCategory("all")}
+            className="text-xs"
+          >
+            Clear filter
+          </Button>
+        )}
       </div>
 
       {/* Filters */}
@@ -180,10 +262,10 @@ const HRCredits = () => {
         </Select>
       </div>
 
-      {/* Credits Table */}
-      <Card className="bento-card overflow-hidden">
-        <CardContent className="p-0">
-          {filteredCredits.length === 0 ? (
+      {/* Credits by User */}
+      {Object.keys(groupedByUser).length === 0 ? (
+        <Card className="bento-card">
+          <CardContent className="p-0">
             <div className="empty-state py-12">
               <CreditCard className="empty-state-icon" />
               <p className="text-slate-600 font-medium">No credits found</p>
@@ -191,64 +273,93 @@ const HRCredits = () => {
                 Assign holiday credits to employees
               </p>
             </div>
-          ) : (
-            <div className="overflow-x-auto">
-              <table className="data-table">
-                <thead>
-                  <tr>
-                    <th>Employee</th>
-                    <th>Year</th>
-                    <th>Total Days</th>
-                    <th>Used Days</th>
-                    <th>Remaining</th>
-                    <th>Actions</th>
-                  </tr>
-                </thead>
-                <tbody>
-                  {filteredCredits.map((credit, idx) => (
-                    <tr
-                      key={credit.credit_id}
-                      className="animate-slide-in"
-                      style={{ animationDelay: `${idx * 30}ms` }}
-                      data-testid={`credit-row-${credit.credit_id}`}
-                    >
-                      <td>
-                        <div>
-                          <p className="font-medium text-slate-900">{credit.user_name}</p>
-                          <p className="text-sm text-slate-500">{credit.user_email}</p>
+          </CardContent>
+        </Card>
+      ) : (
+        <div className="space-y-4">
+          {Object.values(groupedByUser).map((userData, idx) => (
+            <Card 
+              key={userData.user_id} 
+              className="bento-card animate-slide-in"
+              style={{ animationDelay: `${idx * 50}ms` }}
+            >
+              <CardHeader className="pb-2">
+                <div className="flex items-center justify-between">
+                  <div className="flex items-center gap-3">
+                    <div className="w-10 h-10 rounded-full bg-slate-200 flex items-center justify-center">
+                      <span className="text-sm font-medium text-slate-600">
+                        {userData.user_name?.charAt(0)?.toUpperCase() || "U"}
+                      </span>
+                    </div>
+                    <div>
+                      <p className="font-medium text-slate-900">{userData.user_name}</p>
+                      <p className="text-sm text-slate-500">{userData.user_email}</p>
+                    </div>
+                  </div>
+                </div>
+              </CardHeader>
+              <CardContent>
+                <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-5 gap-3">
+                  {categories.map(cat => {
+                    const credit = userData.credits.find(c => c.category === cat.id);
+                    const Icon = categoryIcons[cat.id] || Briefcase;
+                    const colorClass = categoryColors[cat.id] || "bg-slate-100 text-slate-700";
+                    const percentage = credit && credit.total_days > 0 
+                      ? (credit.remaining_days / credit.total_days) * 100 
+                      : 0;
+                    
+                    return (
+                      <div 
+                        key={cat.id} 
+                        className={`p-3 rounded-lg border ${credit ? '' : 'border-dashed opacity-60'} hover:shadow-sm transition-shadow cursor-pointer`}
+                        onClick={() => {
+                          if (credit) {
+                            openEditDialog(credit);
+                          } else {
+                            setFormUser(userData.user_id);
+                            setFormCategory(cat.id);
+                            setTotalDays(cat.id === "paid_holiday" ? "35" : "10");
+                            setFormYear(selectedYear);
+                            setIsDialogOpen(true);
+                          }
+                        }}
+                        data-testid={`credit-card-${userData.user_id}-${cat.id}`}
+                      >
+                        <div className="flex items-center gap-2 mb-2">
+                          <div className={`p-1.5 rounded ${colorClass}`}>
+                            <Icon size={14} />
+                          </div>
+                          <span className="text-xs font-medium text-slate-600 truncate">{cat.name}</span>
                         </div>
-                      </td>
-                      <td className="mono">{credit.year}</td>
-                      <td className="font-medium">{credit.total_days}</td>
-                      <td className="text-amber-600">{credit.used_days}</td>
-                      <td>
-                        <span className={`font-bold ${
-                          credit.remaining_days <= 5 ? "text-red-600" :
-                          credit.remaining_days <= 10 ? "text-amber-600" :
-                          "text-emerald-600"
-                        }`}>
-                          {credit.remaining_days}
-                        </span>
-                      </td>
-                      <td>
-                        <Button
-                          size="sm"
-                          variant="ghost"
-                          onClick={() => openEditDialog(credit)}
-                          data-testid={`edit-credit-btn-${credit.credit_id}`}
-                        >
-                          <Edit size={16} className="mr-1" />
-                          Edit
-                        </Button>
-                      </td>
-                    </tr>
-                  ))}
-                </tbody>
-              </table>
-            </div>
-          )}
-        </CardContent>
-      </Card>
+                        {credit ? (
+                          <>
+                            <div className="flex items-baseline gap-1">
+                              <span className="text-lg font-bold text-slate-900">{credit.remaining_days}</span>
+                              <span className="text-xs text-slate-500">/ {credit.total_days}</span>
+                            </div>
+                            <div className="mt-1.5 h-1 bg-slate-200 rounded-full overflow-hidden">
+                              <div
+                                className={`h-full rounded-full transition-all ${
+                                  percentage > 50 ? "bg-emerald-500" :
+                                  percentage > 20 ? "bg-amber-500" : "bg-red-500"
+                                }`}
+                                style={{ width: `${percentage}%` }}
+                              />
+                            </div>
+                            <p className="text-xs text-slate-500 mt-1">Used: {credit.used_days}</p>
+                          </>
+                        ) : (
+                          <p className="text-xs text-slate-400">Click to assign</p>
+                        )}
+                      </div>
+                    );
+                  })}
+                </div>
+              </CardContent>
+            </Card>
+          ))}
+        </div>
+      )}
 
       {/* Summary */}
       <div className="mt-6 p-4 bg-blue-50 rounded-xl">
@@ -269,8 +380,8 @@ const HRCredits = () => {
             <div>
               <Label className="form-label">Employee</Label>
               <Select
-                value={selectedUser}
-                onValueChange={setSelectedUser}
+                value={formUser}
+                onValueChange={setFormUser}
                 disabled={!!editingCredit}
               >
                 <SelectTrigger data-testid="user-select">
@@ -287,8 +398,34 @@ const HRCredits = () => {
             </div>
 
             <div>
+              <Label className="form-label">Leave Category</Label>
+              <Select 
+                value={formCategory} 
+                onValueChange={setFormCategory}
+                disabled={!!editingCredit}
+              >
+                <SelectTrigger data-testid="category-select">
+                  <SelectValue placeholder="Select category" />
+                </SelectTrigger>
+                <SelectContent>
+                  {categories.map(cat => {
+                    const Icon = categoryIcons[cat.id] || Briefcase;
+                    return (
+                      <SelectItem key={cat.id} value={cat.id}>
+                        <div className="flex items-center gap-2">
+                          <Icon size={14} />
+                          <span>{cat.name}</span>
+                        </div>
+                      </SelectItem>
+                    );
+                  })}
+                </SelectContent>
+              </Select>
+            </div>
+
+            <div>
               <Label className="form-label">Year</Label>
-              <Select value={selectedYear} onValueChange={setSelectedYear} disabled={!!editingCredit}>
+              <Select value={formYear} onValueChange={setFormYear} disabled={!!editingCredit}>
                 <SelectTrigger data-testid="year-select">
                   <SelectValue placeholder="Select year" />
                 </SelectTrigger>
