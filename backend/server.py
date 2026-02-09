@@ -56,7 +56,8 @@ HOLIDAY_CATEGORIES = [
     {"id": "unpaid_leave", "name": "Unpaid Leave", "description": "Leave without pay"},
     {"id": "sick_leave", "name": "Sick Leave (No Justification)", "description": "Sick leave without medical certificate"},
     {"id": "parental_leave", "name": "Parental Leave", "description": "Leave for parental duties"},
-    {"id": "maternity_leave", "name": "Maternity Leave", "description": "Leave for maternity/paternity"}
+    {"id": "maternity_leave", "name": "Maternity Leave", "description": "Leave for maternity/paternity"},
+    {"id": "compensatory_rest", "name": "Compensatory Rest", "description": "Rest days for overtime or extra work"}
 ]
 
 # Default credits per category
@@ -65,7 +66,8 @@ DEFAULT_CREDITS = {
     "unpaid_leave": 0.0,  # Usually unlimited but tracked
     "sick_leave": 5.0,
     "parental_leave": 10.0,
-    "maternity_leave": 90.0
+    "maternity_leave": 90.0,
+    "compensatory_rest": 0.0  # Earned through overtime
 }
 
 class User(BaseModel):
