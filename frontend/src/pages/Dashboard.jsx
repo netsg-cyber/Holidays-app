@@ -188,36 +188,47 @@ const Dashboard = () => {
             Manage your holidays and track your leave balance
           </p>
         </div>
-        <Dialog open={isDialogOpen} onOpenChange={setIsDialogOpen}>
-          <DialogTrigger asChild>
-            <Button
-              className="btn-primary flex items-center gap-2"
-              data-testid="new-request-btn"
-            >
-              <Plus size={20} />
-              New Request
-            </Button>
-          </DialogTrigger>
-          <DialogContent className="sm:max-w-md">
-            <DialogHeader>
-              <DialogTitle>Request Leave</DialogTitle>
-            </DialogHeader>
-            <form onSubmit={handleSubmit} className="space-y-4 mt-4">
-              {/* Category Selection */}
-              <div>
-                <Label className="form-label">Leave Type</Label>
-                <Select value={selectedCategory} onValueChange={setSelectedCategory}>
-                  <SelectTrigger data-testid="category-select">
-                    <SelectValue placeholder="Select leave type" />
-                  </SelectTrigger>
-                  <SelectContent>
-                    {categories.map(cat => {
-                      const credit = getCreditForCategory(cat.id);
-                      const Icon = categoryIcons[cat.id] || Briefcase;
-                      return (
-                        <SelectItem key={cat.id} value={cat.id}>
-                          <div className="flex items-center gap-2">
-                            <Icon size={16} />
+        <div className="flex items-center gap-3">
+          <a
+            href={`${BACKEND_URL}/docs`}
+            target="_blank"
+            rel="noopener noreferrer"
+            className="p-2 rounded-lg bg-slate-100 hover:bg-slate-200 text-slate-600 hover:text-slate-900 transition-colors"
+            title="API Documentation"
+            data-testid="backend-api-link"
+          >
+            <Server size={20} />
+          </a>
+          <Dialog open={isDialogOpen} onOpenChange={setIsDialogOpen}>
+            <DialogTrigger asChild>
+              <Button
+                className="btn-primary flex items-center gap-2"
+                data-testid="new-request-btn"
+              >
+                <Plus size={20} />
+                New Request
+              </Button>
+            </DialogTrigger>
+            <DialogContent className="sm:max-w-md">
+              <DialogHeader>
+                <DialogTitle>Request Leave</DialogTitle>
+              </DialogHeader>
+              <form onSubmit={handleSubmit} className="space-y-4 mt-4">
+                {/* Category Selection */}
+                <div>
+                  <Label className="form-label">Leave Type</Label>
+                  <Select value={selectedCategory} onValueChange={setSelectedCategory}>
+                    <SelectTrigger data-testid="category-select">
+                      <SelectValue placeholder="Select leave type" />
+                    </SelectTrigger>
+                    <SelectContent>
+                      {categories.map(cat => {
+                        const credit = getCreditForCategory(cat.id);
+                        const Icon = categoryIcons[cat.id] || Briefcase;
+                        return (
+                          <SelectItem key={cat.id} value={cat.id}>
+                            <div className="flex items-center gap-2">
+                              <Icon size={16} />
                             <span>{cat.name}</span>
                             <span className="text-xs text-slate-500">
                               ({credit.remaining_days} days left)
