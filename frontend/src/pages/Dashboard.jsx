@@ -16,7 +16,8 @@ import {
   Heart,
   Baby,
   Thermometer,
-  MinusCircle
+  MinusCircle,
+  Server
 } from "lucide-react";
 import { Button } from "../components/ui/button";
 import { Card, CardContent, CardHeader, CardTitle } from "../components/ui/card";
@@ -40,6 +41,8 @@ import {
   SelectValue,
 } from "../components/ui/select";
 import { format, differenceInBusinessDays, addDays } from "date-fns";
+
+const BACKEND_URL = process.env.REACT_APP_BACKEND_URL;
 
 // Category icons mapping
 const categoryIcons = {
