@@ -221,20 +221,24 @@ const Calendar = () => {
                       </div>
                     )}
 
-                    {/* Employee Holidays */}
+                    {/* Employee Holidays - with category colors */}
                     {dayEvents
                       .filter(e => e.type === "holiday")
                       .slice(0, 2)
-                      .map((event, i) => (
-                        <div
-                          key={i}
-                          className="calendar-event calendar-event-holiday"
-                          title={event.title}
-                        >
-                          <User size={10} className="inline mr-1" />
-                          {event.user_name}
-                        </div>
-                      ))}
+                      .map((event, i) => {
+                        const colorClass = categoryColors[event.category] || "bg-blue-200 text-blue-800";
+                        const Icon = categoryIcons[event.category] || User;
+                        return (
+                          <div
+                            key={i}
+                            className={`calendar-event ${colorClass}`}
+                            title={event.title}
+                          >
+                            <Icon size={10} className="inline mr-1" />
+                            {event.user_name}
+                          </div>
+                        );
+                      })}
 
                     {dayEvents.filter(e => e.type === "holiday").length > 2 && (
                       <div className="text-xs text-slate-500 mt-1">
