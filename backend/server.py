@@ -351,21 +351,23 @@ async def process_session(session_id: str, response: Response):
             }
             await db.users.insert_one(new_user)
             
-            # Create default holiday credit for current year
+            # Create default holiday credits for all categories
             current_year = datetime.now().year
-            credit = {
-                "credit_id": f"cred_{uuid.uuid4().hex[:12]}",
-                "user_id": user_id,
-                "user_email": email,
-                "user_name": name,
-                "year": current_year,
-                "total_days": 35.0,
-                "used_days": 0.0,
-                "remaining_days": 35.0,
-                "created_at": datetime.now(timezone.utc).isoformat(),
-                "updated_at": datetime.now(timezone.utc).isoformat()
-            }
-            await db.holiday_credits.insert_one(credit)
+            for cat_id, default_days in DEFAULT_CREDITS.items():
+                credit = {
+                    "credit_id": f"cred_{uuid.uuid4().hex[:12]}",
+                    "user_id": user_id,
+                    "user_email": email,
+                    "user_name": name,
+                    "year": current_year,
+                    "category": cat_id,
+                    "total_days": default_days,
+                    "used_days": 0.0,
+                    "remaining_days": default_days,
+                    "created_at": datetime.now(timezone.utc).isoformat(),
+                    "updated_at": datetime.now(timezone.utc).isoformat()
+                }
+                await db.holiday_credits.insert_one(credit)
         
         # Store session
         expires_at = datetime.now(timezone.utc) + timedelta(days=7)
