@@ -716,6 +716,55 @@ async def create_or_update_credit(credit: HolidayCreditCreate, user: User = Depe
     
     return {"message": "Credit updated successfully"}
 
+class CreditExpirationUpdate(BaseModel):
+    user_id: str
+    year: int
+    category: str
+    expires_at: Optional[str] = None  # ISO date string or None to clear
+
+@api_router.put("/credits/expiration")
+async def update_credit_expiration(data: CreditExpirationUpdate, current_user: User = Depends(get_hr_user)):
+    """Update expiration date for a credit (HR only)"""
+    # Paid holiday has fixed expiration
+    if data.category == "paid_holiday":
+        raise HTTPException(status_code=400, detail="Paid Holidays expiration is fixed to July 31 of the following year")
+    
+    # Find the credit
+    credit = await db.holiday_credits.find_one(
+        {"user_id": data.user_id, "year": data.year, "category": data.category},
+        {"_id": 0}
+    )
+    
+    if not credit:
+        raise HTTPException(status_code=404, detail="Credit not found")
+    
+    # Update expiration
+    await db.holiday_credits.update_one(
+        {"user_id": data.user_id, "year": data.year, "category": data.category},
+        {"$set": {
+            "expires_at": data.expires_at,
+            "updated_at": datetime.now(timezone.utc).isoformat()
+        }}
+    )
+    
+    # Notify employee
+    target_user = await db.users.find_one({"user_id": data.user_id}, {"_id": 0})
+    category_name = next((c["name"] for c in HOLIDAY_CATEGORIES if c["id"] == data.category), data.category)
+    
+    if target_user and data.expires_at:
+        await send_email_notification(
+            target_user["email"],
+            f"{category_name} Credits Expiration Updated",
+            f"""
+            <h2>{category_name} Credits Expiration Updated</h2>
+            <p>The expiration date for your {category_name} credits ({data.year}) has been updated.</p>
+            <p><strong>New Expiration Date:</strong> {data.expires_at}</p>
+            <p>Please use your credits before this date.</p>
+            """
+        )
+    
+    return {"message": "Expiration date updated successfully"}
+
 class CreditAdjustment(BaseModel):
     user_id: str
     year: int
