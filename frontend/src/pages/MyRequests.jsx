@@ -28,7 +28,7 @@ import {
 // Category icons mapping
 const categoryIcons = {
   paid_holiday: Briefcase,
-  unpaid_leave: DollarOff,
+  unpaid_leave: MinusCircle,
   sick_leave: Thermometer,
   parental_leave: Heart,
   maternity_leave: Baby
