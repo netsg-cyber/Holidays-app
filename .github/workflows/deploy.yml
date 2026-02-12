@@ -14,8 +14,9 @@ jobs:
         uses: actions/checkout@v4
       - name: Install and Build
         run: |
-          npm install --no-package-lock --legacy-peer-deps
-          npm run build
+          npm install --save-dev @craco/craco
+          npm install --legacy-peer-deps
+          CI=false npm run build
       - name: Upload Artifacts
         uses: actions/upload-pages-artifact@v3
         with:
