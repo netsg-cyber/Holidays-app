@@ -148,9 +148,9 @@ function App() {
   return (
     <div className="App">
       <Toaster position="top-right" richColors closeButton />
-      <BrowserRouter>
+      <HashRouter>
         <AppRouter />
-      </BrowserRouter>
+      </HashRouter>
     </div>
   );
 }
