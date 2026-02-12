@@ -1,5 +1,5 @@
 import React, { useState, useEffect, useRef } from "react";
-import { BrowserRouter, Routes, Route, useNavigate, useLocation, Navigate } from "react-router-dom";
+import { HashRouter, Routes, Route, useNavigate, useLocation, Navigate } from "react-router-dom";
 import axios from "axios";
 import { Toaster, toast } from "sonner";
 import "./App.css";
